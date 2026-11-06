@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ภาษาแสดงความคิด</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="core.css">
+</head>
+<body>
+<div id="app"><div class="wait" style="padding:40px;text-align:center">กำลังโหลด…</div></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="stamps.js"></script>
+<script src="core.js"></script>
+<!-- คาบที่ทำเสร็จแล้ว: เพิ่มบรรทัด p2.js … p6.js ตรงนี้เมื่อได้ไฟล์ใหม่ -->
+<script src="p1.js"></script>
+<script>
+K.start({
+  title:'ภาษาแสดงความคิด',
+  periods:[
+    {id:'p1', c:'reason',   title:'เหตุและผล',               book:'เล่มหน้า ๑–๓',   items:['นำเข้า: แชทขอแม่ไปคอนเสิร์ต','เหตุ–ผลคืออะไร · คำเชื่อม ๒ ตระกูล','ไม่มีคำเชื่อม: ทดลองเติม เพราะ/จึง','ป้ายวิเศษ ๘ รอบ · ตั๋วออก']},
+    {id:'p2', c:'reason',   title:'โครงสร้างการแสดงเหตุผล',   book:'เล่มหน้า ๔–๗',   items:['โครงสร้าง ๓ แบบ','โดมิโนเหตุผล','กระเป๋าปริศนา (นิรนัย–อุปนัย)','ทักษะวัฒนา ๑']},
+    {id:'p3', c:'opinion',  title:'ภาษากับการแสดงทรรศนะ',    book:'เล่มหน้า ๘–๑๒',  items:['ภาษาแสดงทรรศนะ ๔ แบบ','กาชาทรรศนะ','ตบแมลงวัน ขทจ./นยบ./คค.','ทักษะวัฒนา ๒']},
+    {id:'p4', c:'persuade', title:'ภาษากับการโน้มน้าวใจ',     book:'เล่มหน้า ๑๓–๑๕', items:['วิธีโน้มน้าวใจ ๖ วิธี','ตลาดนัดโน้มน้าว','สั่งงานนักสืบโฆษณา','ทักษะวัฒนา ๓']},
+    {id:'p5', c:'argue',    title:'ภาษากับการโต้แย้ง',        book:'เล่มหน้า ๑๖–๒๓', items:['กระบวนการโต้แย้ง ๔ ขั้น','แปลงประโยคแรงให้สุภาพ','โต้แย้งสายฟ้าแลบ + ใบเหลือง','ทักษะวัฒนา ๔–๕']},
+    {id:'p6', c:'all',      title:'ทบทวนทั้งหน่วย',           book:'เล่มหน้า ๒๔–๓๒', items:['บิงโกความคิด','เศรษฐีภาษาไทย (วิทยาประยุกต์)','สรุปแสตมป์ทั้งหน่วย']}
+  ]
+});
+</script>
+</body>
+</html>
