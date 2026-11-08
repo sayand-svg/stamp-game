@@ -8,6 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="core.css">
+<style>
+/* พื้นหลังภาพ (bg.jpg อยู่ในโฟลเดอร์ khit) · ปรับความจางได้ที่ --bg-wash: 0 = ภาพเต็ม, 1 = ไม่เห็นภาพ */
+:root{--bg-wash:.35}
+body{background:#FBF4EA}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(rgba(251,244,234,var(--bg-wash)),rgba(251,244,234,var(--bg-wash))),url(bg.jpg) center/cover no-repeat}
+.steps{background:rgba(251,244,234,.82);backdrop-filter:blur(4px)}
+@media print{body::before{display:none}}
+</style>
 </head>
 <body>
 <div id="app"><div class="wait" style="padding:40px;text-align:center">กำลังโหลด…</div></div>
