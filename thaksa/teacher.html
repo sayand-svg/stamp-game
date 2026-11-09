@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>หน้าครู · คะแนนแบบฝึก พัฒนาทักษะ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF4EA; --paper:#FFFDF9; --navy:#1E3554; --navy-2:#2F4C73; --navy-soft:#E6ECF4;
+    --terra:#C8693B; --terra-soft:#F8E3D5; --ok:#2C7A55; --ok-soft:#E1F1E7; --warn:#A86A12; --warn-soft:#FBEFD9;
+    --bad:#B5402F; --bad-soft:#FBE4DF; --ink:#24303D; --muted:#66707D; --line:rgba(30,53,84,.12);
+    --shadow:0 10px 28px rgba(30,53,84,.10), 0 2px 6px rgba(30,53,84,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; min-height:100vh; color:var(--ink); font-family:"Sarabun",system-ui,sans-serif; font-size:16px; line-height:1.6; background:var(--cream)}
+  body::before{content:""; position:fixed; inset:0; z-index:-2; background:url("assets/bg.jpg") center/cover no-repeat; opacity:.55}
+  body::after{content:""; position:fixed; inset:0; z-index:-1; background:rgba(251,244,234,.6)}
+  .wrap{max-width:1120px; margin:0 auto; padding:24px 16px 56px}
+  h1,h2,.mitr{font-family:"Mitr","Sarabun",sans-serif; font-weight:500; line-height:1.35; color:var(--navy)}
+  .hidden{display:none !important}
+  button,select,input{font:inherit}
+  button{cursor:pointer}
+  :focus-visible{outline:3px solid var(--terra); outline-offset:2px}
+
+  .head{display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:16px}
+  .eyebrow{font-size:14px; color:var(--muted); margin:0}
+  .head h1{font-size:32px; margin:2px 0 0}
+  .head .sub{margin:2px 0 0; color:var(--navy-2); font-family:"Mitr",sans-serif}
+  .acct{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--muted); background:rgba(255,253,249,.92); border:1px solid var(--line); border-radius:12px; padding:6px 8px 6px 12px}
+
+  .card{background:rgba(255,253,249,.97); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:20px 22px; margin-bottom:16px}
+  .card h2{font-size:20px; margin:0 0 12px}
+  .center{text-align:center; max-width:560px; margin:40px auto}
+  .center p{color:var(--muted)}
+  .msg{border-radius:12px; padding:10px 14px; margin-top:12px; font-size:15px}
+  .msg.bad{background:var(--bad-soft); color:var(--bad)}
+  .msg.info{background:var(--navy-soft); color:var(--navy)}
+
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; border:0; border-radius:12px; padding:10px 18px; min-height:44px; font-family:"Mitr",sans-serif; font-size:16px; font-weight:500}
+  .btn-primary{background:var(--navy); color:#fff}
+  .btn-primary:hover{background:var(--navy-2)}
+  .btn-accent{background:var(--terra); color:#fff}
+  .btn-accent:hover{background:#B85D31}
+  .btn-ghost{background:#fff; color:var(--navy); border:1.5px solid #C5CEDA}
+  .btn-ghost:hover{background:var(--navy-soft)}
+  .btn-sm{min-height:34px; padding:4px 12px; font-size:14px; border-radius:10px}
+  .btn:disabled{opacity:.5; cursor:default}
+
+  .toolbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .toolbar label.sel{display:flex; align-items:center; gap:8px; font-family:"Mitr",sans-serif; color:var(--navy)}
+  .toolbar select{min-height:44px; padding:6px 12px; border:1.5px solid #CBD3DE; border-radius:12px; background:#fff; font-size:16px}
+  .toolbar .spacer{flex:1}
+  .hint{font-size:14px; color:var(--muted); margin:8px 2px 0}
+  .hint a, .linkish{color:var(--navy-2); background:none; border:0; padding:0; text-decoration:underline; text-underline-offset:3px; font-size:14px}
+
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px}
+  .stat{background:rgba(255,253,249,.97); border:1px solid var(--line); border-radius:16px; padding:14px 16px; box-shadow:var(--shadow)}
+  .stat .k{font-size:14px; color:var(--muted)}
+  .stat .v{font-family:"Mitr",sans-serif; font-size:30px; color:var(--navy); line-height:1.2}
+  .stat .v small{font-size:16px; color:var(--muted)}
+
+  .table-wrap{overflow:auto; max-height:70vh; border:1px solid var(--line); border-radius:12px}
+  table{border-collapse:collapse; width:100%; font-size:15px; background:#fff}
+  th,td{padding:8px 10px; text-align:left; border-bottom:1px solid #EEF1F5; white-space:nowrap}
+  thead th{position:sticky; top:0; background:var(--navy); color:#fff; font-family:"Mitr",sans-serif; font-weight:400; font-size:14px; z-index:1}
+  td.num, th.num{text-align:right; font-variant-numeric:tabular-nums}
+  tbody tr:hover{background:#F7F9FC}
+  tr.none td{color:#9AA3AE}
+  .tag{display:inline-block; border-radius:99px; padding:0 10px; font-size:13px; line-height:22px}
+  .tag.none{background:#EEF1F5; color:var(--muted)}
+  .tag.manual{background:var(--warn-soft); color:var(--warn)}
+  .sc{display:inline-block; min-width:34px; text-align:center; border-radius:8px; padding:0 6px; font-weight:700}
+  .sc.s10{background:#FCEFC4; color:#8A6200}
+  .sc.s7{background:#FBDDEB; color:#A1245E}
+  .sc.s5{background:#E7E1FA; color:#5B3FB0}
+  .sc.s3{background:#DDF3E9; color:#21714E}
+  .sc.s1{background:#FDE6D6; color:#A4521C}
+  .empty{padding:28px; text-align:center; color:var(--muted)}
+  .tag.nogroup{background:var(--bad-soft); color:var(--bad)}
+  th.basis{background:var(--terra)}
+  td.basis{font-weight:700; color:var(--navy)}
+
+  .gcards{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px}
+  .gcard{background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px 12px 10px; text-align:center}
+  .gcard h3{margin:0; font-family:"Mitr",sans-serif; font-weight:500; font-size:19px; color:var(--navy)}
+  .gcard img{width:96px; height:auto; display:block; margin:6px auto 2px; filter:drop-shadow(0 4px 6px rgba(0,0,0,.15))}
+  .gcard .ph{width:96px; height:108px; margin:6px auto 2px; border:2px dashed #CBD3DE; border-radius:12px; display:grid; place-items:center; color:#A3ACB8; font-size:13px}
+  .gcard .avg{font-family:"Mitr",sans-serif; font-size:24px; color:var(--navy); line-height:1.2}
+  .gcard .avg small{font-size:14px; color:var(--muted)}
+  .gcard .cnt{font-size:13px; color:var(--muted)}
+  .gcard .mem{list-style:none; padding:6px 0 0; margin:8px 0 0; border-top:1px dashed #E2E7EE; text-align:left; font-size:13px; line-height:1.55}
+  .gcard .mem li{display:flex; justify-content:space-between; gap:6px}
+  .gcard .mem li span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .gcard.none{opacity:.6}
+  table.matrix th, table.matrix td{text-align:center}
+  table.matrix td{line-height:1.35; padding:8px 6px}
+  table.matrix td b{font-family:"Mitr",sans-serif; font-weight:500; font-size:16px; color:var(--navy)}
+  table.matrix td small{display:block; color:var(--muted); font-size:12px}
+  table.matrix td.room{font-family:"Mitr",sans-serif; color:var(--navy); text-align:left}
+
+  .items{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:6px 24px}
+  .it{display:grid; grid-template-columns:52px 1fr 52px; align-items:center; gap:10px; font-size:15px}
+  .it .n{font-family:"Mitr",sans-serif; color:var(--navy)}
+  .it .w{font-size:13px; color:var(--muted); display:block; line-height:1.3}
+  .it .track{height:12px; background:#EEF1F5; border-radius:99px; overflow:hidden}
+  .it .fill{height:100%; border-radius:99px}
+  .it .p{text-align:right; font-variant-numeric:tabular-nums; font-weight:600}
+  .legend{font-size:13px; color:var(--muted); margin-top:10px}
+
+  @media (max-width:760px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .head h1{font-size:26px}
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="head">
+    <div>
+      <p class="eyebrow">หน้าครู · ม.๖ ท๓๓๑๐๒</p>
+      <h1>คะแนนแบบฝึก พัฒนาทักษะ</h1>
+      <p class="sub">การใช้คำผิดความหมายหรือผิดหน้าที่ · ๒๕ ข้อ</p>
+    </div>
+    <div class="acct hidden" id="acct"><span id="acct-email"></span><button class="btn btn-ghost btn-sm" id="btn-signout">ออกจากระบบ</button></div>
+  </div>
+
+  <section id="signed-out" class="card center hidden">
+    <h2>เข้าสู่ระบบด้วยบัญชีครู</h2>
+    <p>ใช้บัญชี Google ที่ตั้งไว้ในกฎ Firebase ของโปรเจกต์ thaksa</p>
+    <button class="btn btn-primary" id="btn-signin">เข้าสู่ระบบด้วย Google</button>
+    <div id="auth-err" class="msg bad hidden"></div>
+  </section>
+
+  <section id="boot" class="card center"><p id="boot-msg">กำลังเชื่อมต่อระบบ…</p></section>
+
+  <section id="app" class="hidden">
+    <div class="card">
+      <div class="toolbar">
+        <label class="sel" for="f-room">ห้อง
+          <select id="f-room"><option value="">ทุกห้อง</option></select>
+        </label>
+        <label class="sel" for="f-basis">คิดคะแนนเดี่ยวจาก
+          <select id="f-basis"><option value="first">ครั้งแรก</option><option value="best">ครั้งที่ได้สูงสุด</option><option value="last">ครั้งล่าสุด</option></select>
+        </label>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost" id="btn-roster">เพิ่มรายชื่อทั้งห้องจากไฟล์ Excel</button>
+        <input type="file" id="roster-file" accept=".xlsx,.xls,.csv" class="hidden">
+        <button class="btn btn-accent" id="btn-export">ส่งออก Excel</button>
+      </div>
+      <p class="hint" id="roster-info">ใส่ไฟล์รายชื่อ (เช่น “รายชื่อนักเรียน ม.6.xlsx”) เพื่อดูว่าใครยังไม่ส่ง ไฟล์จะอ่านในเครื่องนี้เท่านั้น ไม่ถูกอัปโหลด</p>
+      <div id="data-err" class="msg bad hidden"></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">ส่งแล้ว</div><div class="v" id="st-sent">–</div></div>
+      <div class="stat"><div class="k">ทำทั้งหมด</div><div class="v" id="st-tries">–</div></div>
+      <div class="stat"><div class="k">คะแนนเดี่ยวเฉลี่ย</div><div class="v" id="st-avg">–</div></div>
+      <div class="stat"><div class="k">ได้เต็ม ๒๕</div><div class="v" id="st-full">–</div></div>
+    </div>
+
+    <div class="card">
+      <h2 id="g-title">คะแนนกลุ่ม</h2>
+      <div id="groups"></div>
+      <p class="legend">คะแนนกลุ่ม = ค่าเฉลี่ยคะแนนเดี่ยวของสมาชิกในกลุ่มที่ส่งแล้ว (ปัดทศนิยม ๑ ตำแหน่ง) · สแตมป์: เฉลี่ย ๒๕ = ๑๐ · ๒๒ ขึ้นไป = ๗ · ๑๘ ขึ้นไป = ๕ · ๑๓ ขึ้นไป = ๓ · ต่ำกว่า ๑๓ = ๑</p>
+    </div>
+
+    <div class="card">
+      <h2>คะแนนเดี่ยวรายคน</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>ห้อง</th><th class="num">เลขที่</th><th>รหัส</th><th>ชื่อ-นามสกุล</th><th class="num">กลุ่ม</th>
+            <th class="num" data-b="first">ครั้งแรก</th><th class="num" data-b="best">สูงสุด</th><th class="num" data-b="last">ล่าสุด</th><th class="num">ทำ (ครั้ง)</th>
+            <th class="num">เฉลี่ยกลุ่ม</th><th class="num">สแตมป์กลุ่ม</th><th>ส่งครั้งแรก</th><th></th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="legend">คอลัมน์สีส้มคือคะแนนเดี่ยวที่ใช้คิดคะแนนกลุ่ม (เปลี่ยนได้ที่ “คิดคะแนนเดี่ยวจาก”) · คะแนนอัปเดตทันทีเมื่อนักเรียนทำเสร็จ</p>
+    </div>
+
+    <div class="card">
+      <h2>วิเคราะห์รายข้อ <span style="font-size:15px;color:var(--muted)">(ร้อยละที่ตอบถูกในครั้งแรก)</span></h2>
+      <div class="items" id="items"></div>
+      <p class="legend">แดง = ตอบถูกน้อยกว่า ๕๐% · ส้ม = ๕๐–๗๙% · เขียว = ๘๐% ขึ้นไป</p>
+    </div>
+  </section>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ===================== ตั้งค่า ===================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBeVNpeXLDbPAdTgDzMZzgOU9Ex48nroa8",
+  authDomain: "thaksa-ea998.firebaseapp.com",
+  databaseURL: "https://thaksa-ea998-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "thaksa-ea998",
+  storageBucket: "thaksa-ea998.firebasestorage.app",
+  messagingSenderId: "511642815103",
+  appId: "1:511642815103:web:7a9a045b2723e9ed288d4a"
+};
+const RESULT_PATH = "quizzes/pattana-1/results";
+const ROOM_COUNT = 9;
+const GROUP_COUNT = 6;
+// สแตมป์กลุ่มจากคะแนนเฉลี่ย (ต้องตรงกับ STAMP_RULES ในหน้านักเรียน index.html)
+const STAMP_RULES = [ {min:25,stamp:10}, {min:22,stamp:7}, {min:18,stamp:5}, {min:13,stamp:3}, {min:0,stamp:1} ];
+const BASIS = { first:"ครั้งแรก", best:"ครั้งที่ได้สูงสุด", last:"ครั้งล่าสุด" };
+/*KEY_START*/
+const KEY = [1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1];
+const CHOICES = [["เหลวแหลก", "เหลวไหล"], ["จัด", "จัดจ้าน"], ["หนาแน่น", "แน่นหนา"], ["ฟื้นฟู", "รื้อฟื้น"], ["ดุษฎี", "ดุษณี"], ["คลาด", "คลาดแคล้ว"], ["จุล", "จุณ"], ["พัฒนาการ", "พัฒนา"], ["ทับถม", "ถม"], ["ร้อนตัว", "ร้อน"], ["คลาดแคล้ว", "คลาดเคลื่อน"], ["รื้อฟื้น", "ฟื้นฟู"], ["จัดจ้าน", "จัดเจน"], ["ขัดขืน", "ขัดขวาง"], ["สืบสวน", "สอบสวน"], ["ไต่ถาม", "สอบถาม"], ["ออมมือ", "ยั้งมือ"], ["ทำนายทายทัก", "ทาย"], ["อวดอ้าง", "อวด"], ["บาดตา", "สะดุดตา"], ["ผันผวน", "แปรปรวน"], ["เสื่อม", "โทรม"], ["เสื่อมทราม", "เสื่อมถอย"], ["เสื่อมเสีย", "เสื่อมคลาย"], ["พอกพูน", "เพิ่มพูน"]];
+/*KEY_END*/
+const TOTAL = KEY.length;
+const KEYS = ["ก","ข"];
+
+/* ===================== ตัวช่วย ===================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const stampOf = sc => (STAMP_RULES.find(r => sc >= r.min) || STAMP_RULES[STAMP_RULES.length-1]).stamp;
+const scoreOf = ans => ans.split("").reduce((s,a,i) => s + (+a === KEY[i] ? 1 : 0), 0);
+const pad = n => String(n).padStart(2,"0");
+function fmtDate(ts){
+  if(!ts) return "";
+  const d = new Date(ts);
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()+543} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function lsSet(k,v){ try{ v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+/* ===================== สถานะ ===================== */
+let records = [];       // ทุกครั้งที่ส่ง
+let roster = lsGet("pattana1.roster") || null;   // [{sid,name,room,no}] จากไฟล์ของครู
+let ref = null;
+let basis = BASIS[lsGet("pattana1.basis")] ? lsGet("pattana1.basis") : "first";
+const r1 = x => Math.round(x * 10) / 10;
+
+/* ===================== รวมข้อมูลรายคน ===================== */
+function buildStudents(){
+  const map = new Map();
+  const keyOf = r => r.sid ? "id:" + r.sid : `m:${r.room}-${r.no}-${r.name}`;
+  if(roster) roster.forEach(s => map.set("id:" + s.sid, { ...s, group:"", manual:false, tries:[] }));
+  records.forEach(r => {
+    const k = keyOf(r);
+    if(!map.has(k)) map.set(k, { sid:r.sid, name:r.name, room:r.room, no:r.no, group:"", manual:!r.sid, tries:[] });
+    map.get(k).tries.push(r);
+  });
+  const list = [...map.values()];
+  list.forEach(s => {
+    s.tries.sort((a,b) => a.ts - b.ts);
+    if(s.tries.length){
+      const last = s.tries[s.tries.length-1];
+      if(!roster || s.manual || !roster.some(x => x.sid === s.sid)){ s.name = last.name; s.room = last.room; s.no = last.no; }
+      s.first = s.tries[0].score;
+      s.best = Math.max(...s.tries.map(t => t.score));
+      s.last = last.score;
+      s.firstTs = s.tries[0].ts;
+      s.lastTs = last.ts;
+      s.group = String(last.group || "");
+    }
+  });
+  list.sort((a,b) => (+a.room - +b.room) || (+a.no - +b.no) || String(a.name).localeCompare(String(b.name), "th"));
+  return list;
+}
+function buildGroups(students){
+  const g = new Map();
+  students.filter(s => s.tries.length && s.group).forEach(s => {
+    const k = `${s.room}|${s.group}`;
+    if(!g.has(k)) g.set(k, { room:s.room, group:s.group, members:[] });
+    g.get(k).members.push({ name:s.name, no:s.no, score:s[basis] });
+  });
+  g.forEach(x => {
+    x.members.sort((a,b) => +a.no - +b.no);
+    x.sum = x.members.reduce((n,m) => n + m.score, 0);
+    x.avg = r1(x.sum / x.members.length);
+    x.stamp = stampOf(x.avg);
+  });
+  return g;
+}
+function filtered(list){
+  const room = $("f-room").value;
+  return room ? list.filter(s => String(s.room) === room) : list;
+}
+
+/* ===================== แสดงผล ===================== */
+function stampChip(st){ return `<span class="sc s${st}">${st}</span>`; }
+function renderGroups(done, groups){
+  const room = $("f-room").value;
+  $("g-title").textContent = room ? `คะแนนกลุ่ม ม.6/${room}` : "คะแนนกลุ่ม ทุกห้อง";
+  if(room){
+    $("groups").innerHTML = `<div class="gcards">${Array.from({ length:GROUP_COUNT }, (_,i) => {
+      const x = groups.get(`${room}|${i+1}`);
+      if(!x) return `<div class="gcard none"><h3>กลุ่ม ${i+1}</h3><div class="ph">ยังไม่มีคนส่ง</div><div class="avg">–</div></div>`;
+      return `<div class="gcard"><h3>กลุ่ม ${i+1}</h3>
+        <img src="assets/stamp-${x.stamp}.webp" alt="สแตมป์ ${x.stamp} คะแนน">
+        <div class="avg">${x.avg.toFixed(1)}<small> / ${TOTAL}</small></div>
+        <div class="cnt">ส่งแล้ว ${x.members.length} คน</div>
+        <ul class="mem">${x.members.map(m => `<li><span>${esc(m.no)}. ${esc(m.name)}</span><span>${m.score}</span></li>`).join("")}</ul></div>`;
+    }).join("")}</div>`;
+  }else{
+    const rooms = Array.from({ length:ROOM_COUNT }, (_,i) => String(i+1));
+    $("groups").innerHTML = `<div class="table-wrap"><table class="matrix"><thead><tr><th>ห้อง</th>${
+      Array.from({ length:GROUP_COUNT }, (_,i) => `<th>กลุ่ม ${i+1}</th>`).join("")}</tr></thead><tbody>${
+      rooms.map(r => `<tr><td class="room">ม.6/${r}</td>${Array.from({ length:GROUP_COUNT }, (_,i) => {
+        const x = groups.get(`${r}|${i+1}`);
+        return x ? `<td><b>${x.avg.toFixed(1)}</b> ${stampChip(x.stamp)}<small>${x.members.length} คน</small></td>` : `<td style="color:#B3BBC5">–</td>`;
+      }).join("")}</tr>`).join("")}</tbody></table></div>`;
+  }
+  const nog = done.filter(s => !s.group).length;
+  if(nog) $("groups").insertAdjacentHTML("beforeend", `<div class="msg bad">มี ${nog} คนที่ไม่ได้ระบุกลุ่ม จึงยังไม่ถูกนับในคะแนนกลุ่ม</div>`);
+}
+
+function render(){
+  $("f-basis").value = basis;
+  const all = buildStudents(), list = filtered(all);
+  const done = list.filter(s => s.tries.length);
+  const groups = buildGroups(all);
+  const tries = done.reduce((n,s) => n + s.tries.length, 0);
+  const avg = done.length ? done.reduce((n,s) => n + s[basis], 0) / done.length : null;
+  const rosterInView = roster ? list.filter(s => !s.manual && roster.some(x => x.sid === s.sid)).length : 0;
+  $("st-sent").innerHTML = roster ? `${done.length}<small> / ${rosterInView} คน</small>` : `${done.length}<small> คน</small>`;
+  $("st-tries").innerHTML = `${tries}<small> ครั้ง</small>`;
+  $("st-avg").innerHTML = avg == null ? "–" : `${avg.toFixed(1)}<small> / ${TOTAL}</small>`;
+  $("st-full").innerHTML = `${done.filter(s => s[basis] === TOTAL).length}<small> คน</small>`;
+
+  renderGroups(done, groups);
+
+  document.querySelectorAll("th[data-b]").forEach(th => th.classList.toggle("basis", th.dataset.b === basis));
+  const tb = $("tbody");
+  if(!list.length){
+    tb.innerHTML = `<tr><td colspan="13" class="empty">ยังไม่มีนักเรียนส่งคะแนน${$("f-room").value ? "ในห้องนี้" : ""}</td></tr>`;
+  }else{
+    const cell = (s,b) => `<td class="num${b === basis ? " basis" : ""}">${s[b]}</td>`;
+    tb.innerHTML = list.map(s => {
+      if(!s.tries.length) return `<tr class="none"><td>ม.6/${esc(s.room)}</td><td class="num">${esc(s.no)}</td><td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td class="num">–</td>
+        <td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">0</td><td class="num">–</td><td class="num">–</td><td></td><td><span class="tag none">ยังไม่ส่ง</span></td></tr>`;
+      const g = groups.get(`${s.room}|${s.group}`);
+      const tags = (s.manual ? '<span class="tag manual">กรอกชื่อเอง</span> ' : "") + (s.group ? "" : '<span class="tag nogroup">ไม่ระบุกลุ่ม</span>');
+      return `<tr><td>ม.6/${esc(s.room)}</td><td class="num">${esc(s.no)}</td><td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td class="num">${esc(s.group) || "–"}</td>
+        ${cell(s,"first")}${cell(s,"best")}${cell(s,"last")}<td class="num">${s.tries.length}</td>
+        <td class="num">${g ? g.avg.toFixed(1) : "–"}</td><td class="num">${g ? stampChip(g.stamp) : "–"}</td>
+        <td>${fmtDate(s.firstTs)}</td><td>${tags}</td></tr>`;
+    }).join("");
+  }
+
+  const firsts = done.map(s => s.tries[0].answers);
+  $("items").innerHTML = KEY.map((k,i) => {
+    const n = firsts.length, ok = firsts.filter(a => +a[i] === k).length;
+    const pct = n ? Math.round(ok / n * 100) : null;
+    const col = pct == null ? "#C9D1DB" : pct < 50 ? "var(--bad)" : pct < 80 ? "#D9902B" : "var(--ok)";
+    return `<div class="it"><span class="n">ข้อ ${i+1}</span>
+      <span><span class="track" style="display:block"><span class="fill" style="display:block;width:${pct||0}%;background:${col}"></span></span>
+      <span class="w">${KEYS[k]}. ${esc(CHOICES[i][k])} (ไม่ใช่ ${esc(CHOICES[i][1-k])})</span></span>
+      <span class="p">${pct == null ? "–" : pct + "%"}</span></div>`;
+  }).join("");
+
+  $("btn-export").disabled = !list.length;
+  $("btn-export").textContent = $("f-room").value ? `ส่งออก Excel (ม.6/${$("f-room").value})` : "ส่งออก Excel (ทุกห้อง)";
+  $("roster-info").innerHTML = roster
+    ? `ใช้รายชื่อจากไฟล์ ${roster.length} คน (อ่านในเครื่องนี้เท่านั้น) · <button class="linkish" id="btn-clear-roster">เอารายชื่อออก</button>`
+    : "ใส่ไฟล์รายชื่อ (เช่น “รายชื่อนักเรียน ม.6.xlsx”) เพื่อดูว่าใครยังไม่ส่ง ไฟล์จะอ่านในเครื่องนี้เท่านั้น ไม่ถูกอัปโหลด";
+  const c = $("btn-clear-roster"); if(c) c.onclick = () => { roster = null; lsSet("pattana1.roster", null); render(); };
+}
+
+/* ===================== ส่งออก Excel ===================== */
+function exportExcel(){
+  if(typeof XLSX === "undefined"){ showDataErr("โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วรีเฟรชหน้า"); return; }
+  const room = $("f-room").value, bl = BASIS[basis];
+  const all = buildStudents(), list = filtered(all);
+  const done = list.filter(s => s.tries.length);
+  const groups = buildGroups(all);
+
+  const s1 = [["ห้อง","เลขที่","รหัสนักเรียน","ชื่อ-นามสกุล","กลุ่ม",`คะแนนเดี่ยว (${bl})`,"คะแนนครั้งแรก","คะแนนสูงสุด","คะแนนล่าสุด","จำนวนครั้งที่ทำ","คะแนนเฉลี่ยกลุ่ม","สแตมป์กลุ่ม","ส่งครั้งแรก","ส่งล่าสุด","หมายเหตุ"]];
+  list.forEach(s => {
+    if(!s.tries.length){ s1.push([`ม.6/${s.room}`, +s.no, s.sid, s.name, "", "", "", "", "", 0, "", "", "", "", "ยังไม่ส่ง"]); return; }
+    const g = groups.get(`${s.room}|${s.group}`);
+    const note = [s.manual ? "กรอกชื่อเอง" : "", s.group ? "" : "ไม่ระบุกลุ่ม"].filter(Boolean).join(", ");
+    s1.push([`ม.6/${s.room}`, +s.no, s.sid, s.name, s.group ? +s.group : "", s[basis], s.first, s.best, s.last, s.tries.length,
+             g ? g.avg : "", g ? g.stamp : "", fmtDate(s.firstTs), fmtDate(s.lastTs), note]);
+  });
+
+  const s2 = [["ห้อง","กลุ่ม","จำนวนสมาชิกที่ส่ง",`คะแนนรวม (${bl})`,"คะแนนเฉลี่ย (เต็ม 25)","สแตมป์กลุ่ม","สมาชิก (เลขที่ ชื่อ: คะแนน)"]];
+  [...groups.values()].filter(g => !room || g.room === room)
+    .sort((a,b) => (+a.room - +b.room) || (+a.group - +b.group))
+    .forEach(g => s2.push([`ม.6/${g.room}`, +g.group, g.members.length, g.sum, g.avg, g.stamp, g.members.map(m => `${m.no} ${m.name}: ${m.score}`).join(" | ")]));
+
+  const s3 = [["วันเวลาที่ส่ง","ห้อง","เลขที่","รหัสนักเรียน","ชื่อ-นามสกุล","กลุ่ม","ครั้งที่","คะแนน (25)","ข้อที่ตอบผิด", ...KEY.map((_,i) => `ข้อ ${i+1}`)]];
+  done.flatMap(s => s.tries.map((t,j) => ({ s, t, j }))).sort((a,b) => a.t.ts - b.t.ts).forEach(({ s, t, j }) => {
+    const wrong = t.answers.split("").map((a,i) => +a === KEY[i] ? null : i+1).filter(Boolean).join(", ");
+    s3.push([fmtDate(t.ts), `ม.6/${s.room}`, +s.no, s.sid, s.name, t.group ? +t.group : "", j+1, t.score, wrong, ...t.answers.split("").map(a => KEYS[+a])]);
+  });
+  s3.splice(1, 0, ["เฉลย","","","","","","","","", ...KEY.map(k => KEYS[k])]);
+
+  const s4 = [["ข้อ","คำตอบที่ถูก","ตัวเลือกอีกข้อ","ตอบถูก (คน)","ทำแล้ว (คน)","ร้อยละที่ตอบถูก (ครั้งแรก)"]];
+  const firsts = done.map(s => s.tries[0].answers);
+  KEY.forEach((k,i) => {
+    const ok = firsts.filter(a => +a[i] === k).length;
+    s4.push([i+1, `${KEYS[k]}. ${CHOICES[i][k]}`, `${KEYS[1-k]}. ${CHOICES[i][1-k]}`, ok, firsts.length, firsts.length ? Math.round(ok / firsts.length * 1000) / 10 : ""]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const add = (aoa, name, widths) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws["!cols"] = widths.map(w => ({ wch:w })); ws["!autofilter"] = { ref: ws["!ref"] }; XLSX.utils.book_append_sheet(wb, ws, name); };
+  add(s1, "คะแนนเดี่ยว", [9,7,12,28,7,20,14,13,13,14,16,12,17,17,18]);
+  add(s2, "คะแนนกลุ่ม", [9,7,17,22,20,12,90]);
+  add(s3, "ทุกครั้งที่ส่ง", [17,9,7,12,28,7,8,11,22, ...KEY.map(() => 6)]);
+  add(s4, "วิเคราะห์รายข้อ", [6,18,18,12,12,24]);
+  const d = new Date();
+  XLSX.writeFile(wb, `คะแนน_พัฒนาทักษะ_การใช้คำ_${room ? "ม6-" + room : "ทุกห้อง"}_${d.getFullYear()+543}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.xlsx`);
+}
+
+/* ===================== รายชื่อจากไฟล์ของครู ===================== */
+function readRoster(file){
+  const fr = new FileReader();
+  fr.onload = () => {
+    try{
+      const wb = XLSX.read(new Uint8Array(fr.result), { type:"array" });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"" });
+      const h = rows.findIndex(r => r.some(c => /รหัส/.test(String(c))));
+      if(h < 0) throw new Error("ไม่พบหัวคอลัมน์ “รหัส”");
+      const head = rows[h].map(c => String(c).trim());
+      const ci = re => head.findIndex(c => re.test(c));
+      const cNo = ci(/เลขที่/), cId = ci(/รหัส/), cName = ci(/ชื่อ/), cRoom = ci(/ห้อง/);
+      if(cId < 0 || cName < 0 || cRoom < 0) throw new Error("ต้องมีคอลัมน์ รหัส ชื่อ และ ห้อง");
+      const cLast = (head[cName + 1] === "" || /สกุล/.test(head[cName + 1] || "")) && cName + 1 !== cRoom ? cName + 1 : -1;
+      const list = [];
+      rows.slice(h + 1).forEach(r => {
+        const sid = String(r[cId]).replace(/\D/g, "");
+        if(!sid) return;
+        const name = [r[cName], cLast >= 0 ? r[cLast] : ""].map(x => String(x).trim()).filter(Boolean).join(" ");
+        list.push({ sid, name, room:String(r[cRoom]).replace(/\D/g, ""), no:String(cNo >= 0 ? r[cNo] : "").replace(/\D/g, "") });
+      });
+      if(!list.length) throw new Error("ไม่พบรายชื่อในไฟล์");
+      roster = list; lsSet("pattana1.roster", roster); $("data-err").classList.add("hidden"); render();
+    }catch(e){ showDataErr("อ่านไฟล์รายชื่อไม่ได้: " + e.message); }
+  };
+  fr.readAsArrayBuffer(file);
+}
+function showDataErr(t){ const el = $("data-err"); el.textContent = t; el.classList.remove("hidden"); }
+
+/* ===================== Firebase ===================== */
+function show(id){ ["signed-out","boot","app"].forEach(x => $(x).classList.toggle("hidden", x !== id)); }
+function startListening(user){
+  if(ref) ref.off();
+  ref = firebase.database().ref(RESULT_PATH);
+  ref.on("value", snap => {
+    const v = snap.val() || {};
+    records = Object.keys(v).map(k => ({ key:k, ...v[k] }))
+      .filter(r => typeof r.answers === "string" && r.answers.length === TOTAL)
+      .map(r => ({ ...r, sid:String(r.sid || ""), room:String(r.room || ""), no:String(r.no || ""), group:String(r.group || ""), score:scoreOf(r.answers), ts:+r.ts || 0 }));
+    $("data-err").classList.add("hidden");
+    show("app"); render();
+  }, err => {
+    show("app"); render();
+    showDataErr(/permission/i.test(String(err && (err.code || err.message)))
+      ? `บัญชี ${user.email} ยังไม่มีสิทธิ์ดูคะแนน ตรวจว่าใส่กฎ Firebase สำหรับ quizzes แล้ว และเข้าระบบด้วย Gmail ที่ตั้งไว้ในกฎ`
+      : "โหลดคะแนนไม่สำเร็จ: " + (err && err.message));
+  });
+}
+function boot(){
+  if(typeof firebase === "undefined"){ $("boot-msg").textContent = "โหลดระบบ Firebase ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วรีเฟรชหน้า"; return; }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth();
+  auth.onAuthStateChanged(u => {
+    if(u){
+      $("acct").classList.remove("hidden"); $("acct-email").textContent = u.email || "";
+      $("boot-msg").textContent = "กำลังโหลดคะแนน…"; show("boot");
+      startListening(u);
+    }else{
+      if(ref){ ref.off(); ref = null; }
+      records = [];
+      $("acct").classList.add("hidden"); show("signed-out");
+    }
+  });
+  $("btn-signin").onclick = () => {
+    $("auth-err").classList.add("hidden");
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => {
+      const el = $("auth-err");
+      el.textContent = e && e.code === "auth/unauthorized-domain"
+        ? "โดเมนนี้ยังไม่ได้รับอนุญาตใน Firebase (Authentication → Settings → Authorized domains)"
+        : "เข้าสู่ระบบไม่สำเร็จ: " + (e && e.message || e);
+      el.classList.remove("hidden");
+    });
+  };
+  $("btn-signout").onclick = () => auth.signOut();
+}
+
+for(let i = 1; i <= ROOM_COUNT; i++){ const o = document.createElement("option"); o.value = i; o.textContent = `ม.6/${i}`; $("f-room").appendChild(o); }
+$("f-room").addEventListener("change", render);
+$("f-basis").addEventListener("change", () => { basis = $("f-basis").value; lsSet("pattana1.basis", basis); render(); });
+$("btn-export").addEventListener("click", exportExcel);
+$("btn-roster").addEventListener("click", () => $("roster-file").click());
+$("roster-file").addEventListener("change", e => { const f = e.target.files[0]; if(f) readRoster(f); e.target.value = ""; });
+boot();
+</script>
+</body>
+</html>
