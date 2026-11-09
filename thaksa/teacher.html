@@ -96,6 +96,21 @@
   .gcard .mem li{display:flex; justify-content:space-between; gap:6px}
   .gcard .mem li span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .gcard.none{opacity:.6}
+  .btn-reset{border:1.5px solid #E6B3AA; background:#fff; color:var(--bad); border-radius:8px; padding:2px 12px;
+    font-family:"Mitr",sans-serif; font-size:13px; line-height:1.6}
+  .btn-reset:hover{background:var(--bad-soft)}
+  .overlay{position:fixed; inset:0; background:rgba(20,30,45,.45); display:grid; place-items:center; z-index:50; padding:16px}
+  .dialog{background:#fff; border-radius:18px; max-width:460px; width:100%; padding:22px 24px; box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .dialog h3{font-family:"Mitr",sans-serif; font-weight:500; font-size:21px; color:var(--navy); margin:0 0 8px}
+  .dialog p{margin:6px 0; font-size:16px}
+  .dialog .who{color:var(--muted); font-size:15px}
+  .dialog .warn{background:var(--bad-soft); color:var(--bad); border-radius:10px; padding:8px 12px; font-size:15px; margin-top:10px}
+  .dialog .row{display:flex; gap:10px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap}
+  .btn-danger{background:var(--bad); color:#fff}
+  .btn-danger:hover{background:#9C3426}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--navy); color:#fff;
+    padding:10px 18px; border-radius:12px; z-index:60; font-size:15px; box-shadow:0 8px 24px rgba(0,0,0,.2); max-width:calc(100% - 32px)}
+  .toast.bad{background:var(--bad)}
   table.matrix th, table.matrix td{text-align:center}
   table.matrix td{line-height:1.35; padding:8px 6px}
   table.matrix td b{font-family:"Mitr",sans-serif; font-weight:500; font-size:16px; color:var(--navy)}
@@ -175,7 +190,7 @@
           <thead><tr>
             <th>ห้อง</th><th class="num">เลขที่</th><th>รหัส</th><th>ชื่อ-นามสกุล</th><th class="num">กลุ่ม</th>
             <th class="num" data-b="first">ครั้งแรก</th><th class="num" data-b="best">สูงสุด</th><th class="num" data-b="last">ล่าสุด</th><th class="num">ทำ (ครั้ง)</th>
-            <th class="num">เฉลี่ยกลุ่ม</th><th class="num">สแตมป์กลุ่ม</th><th>ส่งครั้งแรก</th><th></th>
+            <th class="num">เฉลี่ยกลุ่ม</th><th class="num">สแตมป์กลุ่ม</th><th>ส่งครั้งแรก</th><th></th><th></th>
           </tr></thead>
           <tbody id="tbody"></tbody>
         </table>
@@ -190,6 +205,20 @@
     </div>
   </section>
 </main>
+
+<div class="overlay hidden" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+  <div class="dialog">
+    <h3 id="dlg-title">รีเซ็ตคะแนน?</h3>
+    <p class="who" id="dlg-who"></p>
+    <p id="dlg-body"></p>
+    <p class="warn">ลบแล้วกู้คืนไม่ได้ ถ้าต้องการเก็บคะแนนเดิมไว้ ให้กด “ส่งออก Excel” ก่อน</p>
+    <div class="row">
+      <button class="btn btn-ghost" id="dlg-cancel">ยกเลิก</button>
+      <button class="btn btn-danger" id="dlg-ok">รีเซ็ตคะแนน</button>
+    </div>
+  </div>
+</div>
+<div class="toast hidden" id="toast" role="status"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -237,6 +266,7 @@ function lsSet(k,v){ try{ v == null ? localStorage.removeItem(k) : localStorage.
 let records = [];       // ทุกครั้งที่ส่ง
 let roster = lsGet("pattana1.roster") || null;   // [{sid,name,room,no}] จากไฟล์ของครู
 let ref = null;
+let shown = [];          // แถวที่แสดงในตารางตอนนี้ (ใช้กับปุ่มรีเซ็ต)
 let basis = BASIS[lsGet("pattana1.basis")] ? lsGet("pattana1.basis") : "first";
 const r1 = x => Math.round(x * 10) / 10;
 
@@ -333,18 +363,20 @@ function render(){
   document.querySelectorAll("th[data-b]").forEach(th => th.classList.toggle("basis", th.dataset.b === basis));
   const tb = $("tbody");
   if(!list.length){
-    tb.innerHTML = `<tr><td colspan="13" class="empty">ยังไม่มีนักเรียนส่งคะแนน${$("f-room").value ? "ในห้องนี้" : ""}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="14" class="empty">ยังไม่มีนักเรียนส่งคะแนน${$("f-room").value ? "ในห้องนี้" : ""}</td></tr>`;
   }else{
     const cell = (s,b) => `<td class="num${b === basis ? " basis" : ""}">${s[b]}</td>`;
-    tb.innerHTML = list.map(s => {
+    shown = list;
+    tb.innerHTML = list.map((s, idx) => {
       if(!s.tries.length) return `<tr class="none"><td>ม.6/${esc(s.room)}</td><td class="num">${esc(s.no)}</td><td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td class="num">–</td>
-        <td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">0</td><td class="num">–</td><td class="num">–</td><td></td><td><span class="tag none">ยังไม่ส่ง</span></td></tr>`;
+        <td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">0</td><td class="num">–</td><td class="num">–</td><td></td><td><span class="tag none">ยังไม่ส่ง</span></td><td></td></tr>`;
       const g = groups.get(`${s.room}|${s.group}`);
       const tags = (s.manual ? '<span class="tag manual">กรอกชื่อเอง</span> ' : "") + (s.group ? "" : '<span class="tag nogroup">ไม่ระบุกลุ่ม</span>');
       return `<tr><td>ม.6/${esc(s.room)}</td><td class="num">${esc(s.no)}</td><td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td class="num">${esc(s.group) || "–"}</td>
         ${cell(s,"first")}${cell(s,"best")}${cell(s,"last")}<td class="num">${s.tries.length}</td>
         <td class="num">${g ? g.avg.toFixed(1) : "–"}</td><td class="num">${g ? stampChip(g.stamp) : "–"}</td>
-        <td>${fmtDate(s.firstTs)}</td><td>${tags}</td></tr>`;
+        <td>${fmtDate(s.firstTs)}</td><td>${tags}</td>
+        <td><button class="btn-reset" data-reset="${idx}" title="ลบผลที่ส่งมาทั้งหมดของ ${esc(s.name)}">รีเซ็ต</button></td></tr>`;
     }).join("");
   }
 
@@ -440,6 +472,38 @@ function readRoster(file){
   };
   fr.readAsArrayBuffer(file);
 }
+/* ===================== รีเซ็ตคะแนนรายบุคคล ===================== */
+let resetTarget = null, toastTimer = null;
+function toast(text, bad){
+  const el = $("toast"); el.textContent = text; el.className = "toast" + (bad ? " bad" : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add("hidden"), bad ? 8000 : 4000);
+}
+function openReset(s){
+  if(!s || !s.tries.length) return;
+  resetTarget = s;
+  $("dlg-title").textContent = `รีเซ็ตคะแนนของ ${s.name}?`;
+  $("dlg-who").textContent = `${s.sid ? "รหัส " + s.sid + " · " : ""}ม.6/${s.room} เลขที่ ${s.no}${s.group ? " · กลุ่ม " + s.group : ""}`;
+  $("dlg-body").textContent = `จะลบผลที่ส่งมาทั้งหมด ${s.tries.length} ครั้ง (ครั้งแรก ${s.first} · สูงสุด ${s.best} คะแนน) ` +
+    `นักเรียนทำใหม่ได้ และครั้งถัดไปจะนับเป็นครั้งแรก คะแนนเฉลี่ยของกลุ่มจะคำนวณใหม่ทันที`;
+  $("dlg-ok").disabled = false; $("dlg-ok").textContent = "รีเซ็ตคะแนน";
+  $("dlg").classList.remove("hidden");
+  $("dlg-cancel").focus();
+}
+function closeReset(){ $("dlg").classList.add("hidden"); resetTarget = null; }
+function doReset(){
+  const s = resetTarget; if(!s) return;
+  const upd = {}; s.tries.forEach(t => { upd[t.key] = null; });
+  $("dlg-ok").disabled = true; $("dlg-ok").textContent = "กำลังลบ…";
+  firebase.database().ref(RESULT_PATH).update(upd).then(() => {
+    closeReset(); toast(`รีเซ็ตคะแนนของ ${s.name} แล้ว`);
+  }, err => {
+    closeReset();
+    toast(/permission/i.test(String(err && (err.code || err.message)))
+      ? "ยังลบไม่ได้: ต้องอัปเดตกฎ Firebase ให้ครูลบข้อมูลได้ก่อน (บรรทัด .write)"
+      : "ลบไม่สำเร็จ: " + (err && err.message), true);
+  });
+}
+
 function showDataErr(t){ const el = $("data-err"); el.textContent = t; el.classList.remove("hidden"); }
 
 /* ===================== Firebase ===================== */
@@ -492,6 +556,11 @@ function boot(){
 for(let i = 1; i <= ROOM_COUNT; i++){ const o = document.createElement("option"); o.value = i; o.textContent = `ม.6/${i}`; $("f-room").appendChild(o); }
 $("f-room").addEventListener("change", render);
 $("f-basis").addEventListener("change", () => { basis = $("f-basis").value; lsSet("pattana1.basis", basis); render(); });
+$("tbody").addEventListener("click", e => { const b = e.target.closest("[data-reset]"); if(b) openReset(shown[+b.dataset.reset]); });
+$("dlg-cancel").addEventListener("click", closeReset);
+$("dlg-ok").addEventListener("click", doReset);
+$("dlg").addEventListener("click", e => { if(e.target === $("dlg")) closeReset(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape" && !$("dlg").classList.contains("hidden")) closeReset(); });
 $("btn-export").addEventListener("click", exportExcel);
 $("btn-roster").addEventListener("click", () => $("roster-file").click());
 $("roster-file").addEventListener("change", e => { const f = e.target.files[0]; if(f) readRoster(f); e.target.value = ""; });
