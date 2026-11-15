@@ -643,7 +643,7 @@ function scheduleBoard(){ if(ROLE!=='teacher'||!base) return; clearTimeout(board
 function computeScores(){
   const cats={tri:[],det:[],rev:[]};
   Object.keys(S.reveal).forEach(k=>{ if(/^t\d+_\d$/.test(k)) cats.tri.push(k); else if(/^d\d+$/.test(k)) cats.det.push(k); else if(/^v\d+$/.test(k)) cats.rev.push(k); });
-  const ind=Object.keys(STU).map(sid=>{ const o={sid, g:Number(STU[sid].g)||0}; for(const c in cats) o[c]=cats[c].filter(k=>correct(k,ansOf(sid,k))).length; o.tot=o.tri+o.det+o.rev; return o; });
+  const ind=Object.keys(STU).map(sid=>{ const o={sid, n:String(STU[sid].n||''), g:Number(STU[sid].g)||0}; for(const c in cats) o[c]=cats[c].filter(k=>correct(k,ansOf(sid,k))).length; o.tot=o.tri+o.det+o.rev; return o; });
   const grp={}; for(let g=1; g<=S.groups; g++){ const ms=ind.filter(x=>x.g===g); const n=ms.length; const av=(c)=>n?r2(ms.reduce((s,x)=>s+x[c],0)/n):0; grp[g]={n, tri:av('tri'), det:av('det'), rev:av('rev'), tot:av('tot'), st:gStamps(g)}; }
   return {ind, grp, max:{tri:cats.tri.length, det:cats.det.length, rev:cats.rev.length}};
 }
@@ -706,7 +706,11 @@ const A={
   rreset(){ for(const k of Object.keys(S.reveal)) if(/^v\d+$/.test(k)){ delete S.reveal[k]; delete S.st[k]; } closeKeys(k=>/^v\d+$/.test(k)); S.rev.i=0; if(base) Object.keys(ANS).forEach(sid=>REV.forEach((_,i)=>{ if(ANS[sid]&&ANS[sid]['v'+i]!=null) base.child(`ans/${sid}/v${i}`).remove(); })); push(); },
   // reset whole lesson
   resetAll(){ const g=S.groups, r=S.tri.rounds; S=fresh(g); S.tri.rounds=r; if(base){ base.child('ans').remove(); base.child('rx').remove(); base.child('board').remove(); } push(); },
-  clearRoster(){ if(base) base.child('stu').remove(); }
+  clearRoster(){ if(base){ base.child('stu').remove(); base.child('ans').remove(); } },
+  rmStu(sid){ if(base){ base.child('stu/'+sid).remove(); base.child('ans/'+sid).remove(); } },
+  rsStu(sid){ if(base) base.child('ans/'+sid).remove(); },
+  rsAllAns(){ if(base) base.child('ans').remove(); },
+  rsStamps(){ S.st={}; push(); }
 };
 function dpool(){ return DITEMS.map((_,i)=>i).filter(i=>!S.det.used.includes(i) && (S.det.only==null || DITEMS[i].t===S.det.only)); }
 function voteTally(c){ const t={}; for(const sid in ANS){ const v=ANS[sid]&&ANS[sid]['w'+c]; if(v!=null){ t[v]=(t[v]||0)+1; } } return t; }
@@ -717,7 +721,7 @@ function tBar(){
   const n=nStu();
   const t=S.timer;
   return `<div class="brand"><span class="cross" aria-hidden="true"></span><div><h1>ER ห้องฉุกเฉินประโยค</h1><small>ภาษาไทย 6 · ท33102 · คาบที่ 4</small></div></div>
-   <div class="roomchip"><span>ห้อง <b>${esc(roomId)}</b></span><span class="pill ${connected?'ok':'off'}">${connected?'ออนไลน์':'ขาดการเชื่อมต่อ'}</span><span class="pill">นักเรียน ${n} คน</span>
+   <div class="roomchip"><span>ห้อง <b>${esc(roomId)}</b></span><span class="pill ${connected?'ok':'off'}">${connected?'ออนไลน์':'ขาดการเชื่อมต่อ'}</span><button class="pill" data-a="go" data-v="score" style="border:0;cursor:pointer">นักเรียน ${n} คน</button>
      <button class="btn sm" data-a="qr">QR เข้าห้อง</button></div>
    <div class="timer" id="timer"><span class="tlab">${esc((t&&t.label)||'ตัวจับเวลา')}</span><span class="tdisp" id="tdisp">${fmt(timerLeft())}</span>
      <button class="btn sm ghost" data-a="tpause" ${t?'':'disabled'}>${t&&t.run?'พัก':'เดิน'}</button>
@@ -840,7 +844,7 @@ function vTreat(){
       <button class="btn ghost" data-a="rxkey">${L.rxKey?'ซ่อนแนวคำตอบของครู':'แนวคำตอบของครู'}</button></div>
       ${L.rxKey?rx(C.rx)+dx(C.d)+(C.n?`<p class="note">${esc(C.n)}</p>`:''):''}
       <div class="wall">${Array.from({length:S.groups},(_,i)=>i+1).map(g=>{ const x=R[g]; return `<div class="rxcard ${st[g]?'ok':''}"><h4><span>กลุ่ม ${g}</span>${x?`<button class="btn sm ${st[g]?'primary':''}" data-a="rxok" data-g="${g}">${st[g]?'✓ ให้ '+RX_ST+' บาทแล้ว':'✓ ผ่าน'}</button>`:''}</h4>
-        ${x?`<span class="t">${esc(x.s)}</span><span class="by">ส่งโดย ${esc(x.by)}</span>`:'<span class="note">ยังไม่ส่ง</span>'}</div>`; }).join('')}</div>`; }
+        ${x?`<span class="t">${esc(x.s)}</span><span class="by">ส่งโดย ${esc(nameOf(x.by))}</span>`:'<span class="note">ยังไม่ส่ง</span>'}</div>`; }).join('')}</div>`; }
   return `<div class="side"><section class="panel main"><span class="eyebrow">รักษา · กลุ่มละ 1 ใบสั่งยาต่อเคส</span>
      <ol class="lead" style="margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px">
       <li>ครูเลือกบัตรผู้ป่วย 1 ใบ</li><li>ในกลุ่มช่วยกันคิด แล้วให้ 1 คนพิมพ์ใบสั่งยาในมือถือและกดส่ง</li>
@@ -897,6 +901,8 @@ function vRev(){
      <p class="note">ที่มา: เอกสาร “ตัวอย่างประโยคกำกวม” (คัด 10 จาก 15 ประโยค)</p></section>`;
 }
 
+const nameOf=(sid)=>{ const s=STU[sid]; return s&&s.n ? s.n+' ('+sid+')' : sid; };
+const cbtn=(a,v,tag,txt,sure)=>`<button class="btn sm ghost" data-a="${a}" data-v="${esc(v)}" style="${L.confirm===tag?'color:var(--er);border-color:var(--er)':''}">${L.confirm===tag?sure:txt}</button>`;
 function vScore(){
   const sc=computeScores(), M=sc.max;
   const gs=Array.from({length:S.groups},(_,i)=>i+1).sort((a,b)=>sc.grp[b].st-sc.grp[a].st||sc.grp[b].tot-sc.grp[a].tot);
@@ -908,14 +914,18 @@ function vScore(){
     <tbody>${gs.map(g=>{ const x=sc.grp[g]; return `<tr class="${topSt>0&&x.st===topSt?'top':''}"><td><b>กลุ่ม ${g}</b></td><td class="n">${x.n}</td><td><div class="stamps">${gStampList(g).sort((a,b)=>b-a).map(v=>stampImg(v)).join('')}</div></td><td class="n"><b>${x.st}</b></td><td class="n">${x.tri}</td><td class="n">${x.det}</td><td class="n">${x.rev}</td><td class="n">${x.tot}</td></tr>`; }).join('')}</tbody></table></div>
     <p class="note">ค่าเฉลี่ยกลุ่ม = ผลรวมคะแนนของสมาชิกทุกคนที่ลงทะเบียนในกลุ่ม ÷ จำนวนสมาชิก คนที่ไม่ได้ตอบนับเป็น 0</p></section>
    <section class="panel"><div class="row" style="justify-content:space-between"><h3>คะแนนรายบุคคล (${ind.length} คน)</h3>
-     <div class="row"><button class="btn primary" data-a="csv">คัดลอกคะแนน (วางใน Excel/Sheets)</button>
-     <button class="btn sm ghost" data-a="clearRoster" style="${L.confirm==='roster'?'color:var(--er);border-color:var(--er)':''}">${L.confirm==='roster'?'กดอีกครั้ง: ลบรายชื่อทั้งหมด':'ลบรายชื่อนักเรียน'}</button></div></div>
+     <button class="btn primary" data-a="csv">คัดลอกคะแนน (วางใน Excel/Sheets)</button></div>
+    <div class="row">${cbtn('rsAllAns','','ans','รีเซ็ตคะแนนรายบุคคลทั้งหมด','กดอีกครั้ง: ล้างคำตอบของทุกคน')}
+      ${cbtn('rsStamps','','st','รีเซ็ตสแตมป์กลุ่มทั้งหมด','กดอีกครั้ง: ล้างสแตมป์ทุกกลุ่ม')}
+      ${cbtn('clearRoster','','roster','ลบนักเรียนทั้งหมดออกจากระบบ','กดอีกครั้ง: ลบรายชื่อและคะแนนทั้งหมด')}</div>
+    <p class="note">รีเซ็ตคะแนนรายบุคคลจะล้างคำตอบที่ส่งไว้ คะแนนกลับเป็น 0 แต่สแตมป์ที่กลุ่มได้ไปแล้วยังอยู่ ถ้าต้องการล้างสแตมป์ด้วยให้กดรีเซ็ตสแตมป์แยก · ลบนักเรียนออก มือถือของคนนั้นจะกลับไปหน้าลงทะเบียน แล้วเข้าใหม่ได้</p>
     <textarea id="csvbox" hidden readonly style="width:100%;height:120px"></textarea>
-    <div class="tabwrap"><table class="gtab"><thead><tr><th>รหัสนักเรียน</th><th>กลุ่ม</th><th class="n">คัดแยก /${M.tri}</th><th class="n">นักสืบ /${M.det}</th><th class="n">ทบทวน /${M.rev}</th><th class="n">รวม</th></tr></thead>
-    <tbody>${ind.map(x=>`<tr><td>${esc(x.sid)}</td><td>${x.g}</td><td class="n">${x.tri}</td><td class="n">${x.det}</td><td class="n">${x.rev}</td><td class="n"><b>${x.tot}</b></td></tr>`).join('')||'<tr><td colspan="6" class="note">ยังไม่มีนักเรียนเข้าห้อง</td></tr>'}</tbody></table></div></section>`;
+    <div class="tabwrap"><table class="gtab"><thead><tr><th>รหัสนักเรียน</th><th>ชื่อ</th><th>กลุ่ม</th><th class="n">คัดแยก /${M.tri}</th><th class="n">นักสืบ /${M.det}</th><th class="n">ทบทวน /${M.rev}</th><th class="n">รวม</th><th></th></tr></thead>
+    <tbody>${ind.map(x=>`<tr><td>${esc(x.sid)}</td><td>${esc(x.n)}</td><td>${x.g}</td><td class="n">${x.tri}</td><td class="n">${x.det}</td><td class="n">${x.rev}</td><td class="n"><b>${x.tot}</b></td>
+      <td><div class="row" style="gap:6px;flex-wrap:nowrap">${cbtn('rsStu',x.sid,'rs:'+x.sid,'รีเซ็ตคะแนน','ยืนยันรีเซ็ต')}${cbtn('rmStu',x.sid,'rm:'+x.sid,'ลบออก','ยืนยันลบ')}</div></td></tr>`).join('')||'<tr><td colspan="8" class="note">ยังไม่มีนักเรียนเข้าห้อง</td></tr>'}</tbody></table></div></section>`;
 }
-function csvText(){ const sc=computeScores(), M=sc.max; const rows=[['รหัสนักเรียน','กลุ่ม',`คัดแยก(เต็ม ${M.tri})`,`นักสืบ(เต็ม ${M.det})`,`ทบทวน(เต็ม ${M.rev})`,'รวมรายบุคคล',`เฉลี่ยกลุ่ม`,'สแตมป์กลุ่ม(บาท)']];
-  sc.ind.slice().sort((a,b)=>a.g-b.g||String(a.sid).localeCompare(String(b.sid),'th',{numeric:true})).forEach(x=>{ const G=sc.grp[x.g]||{tot:0,st:0}; rows.push([x.sid,x.g,x.tri,x.det,x.rev,x.tot,G.tot,G.st]); });
+function csvText(){ const sc=computeScores(), M=sc.max; const rows=[['รหัสนักเรียน','ชื่อ','กลุ่ม',`คัดแยก(เต็ม ${M.tri})`,`นักสืบ(เต็ม ${M.det})`,`ทบทวน(เต็ม ${M.rev})`,'รวมรายบุคคล',`เฉลี่ยกลุ่ม`,'สแตมป์กลุ่ม(บาท)']];
+  sc.ind.slice().sort((a,b)=>a.g-b.g||String(a.sid).localeCompare(String(b.sid),'th',{numeric:true})).forEach(x=>{ const G=sc.grp[x.g]||{tot:0,st:0}; rows.push([x.sid,x.n,x.g,x.tri,x.det,x.rev,x.tot,G.tot,G.st]); });
   return rows.map(r=>r.join('\t')).join('\n'); }
 
 function vSignin(){
@@ -939,15 +949,25 @@ function renderTeacher(){
    ================================================================= */
 let ME=null, MYANS={}, BOARD=null, RXS={}, drafts={}, lastSeenAward={}, haveState=false;
 function meKey(){ return 'er5.me.'+roomId; }
-function joinRoom(sid,g){
-  sid=cleanSid(sid); if(!/^[0-9A-Za-z]{2,12}$/.test(sid)){ toast('พิมพ์รหัสนักเรียน 2–12 ตัว (ตัวเลขหรือตัวอักษรอังกฤษ)'); return; }
+const cleanName=(s)=>String(s||'').replace(/\s+/g,' ').trim().slice(0,40);
+function regStu(){ if(ME&&base) return base.child('stu/'+ME.sid).set({g:ME.g, n:ME.n||'', t:firebase.database.ServerValue.TIMESTAMP}); return Promise.resolve(); }
+function joinRoom(sid,g,n){
+  sid=cleanSid(sid); n=cleanName(n);
+  if(!/^[0-9A-Za-z]{2,12}$/.test(sid)){ toast('พิมพ์รหัสนักเรียน 2–12 ตัว (ตัวเลขหรือตัวอักษรอังกฤษ)'); return; }
+  if(!n){ toast('พิมพ์ชื่อก่อน'); return; }
   if(!(g>=1&&g<=8)){ toast('เลือกกลุ่มก่อน'); return; }
-  ME={sid,g}; lsSet(meKey(),ME);
-  base.child('stu/'+sid).set({g, t:firebase.database.ServerValue.TIMESTAMP}).then(()=>toast('เข้าห้องแล้ว')).catch(()=>toast('เข้าห้องไม่สำเร็จ ลองอีกครั้ง'));
+  const old=ME&&ME.sid; if(mineUnsub){ mineUnsub(); mineUnsub=null; }
+  if(old && old!==sid) base.child('stu/'+old).remove().catch(()=>{});
+  ME={sid,g,n}; lsSet(meKey(),ME); drafts={};
+  regStu().then(()=>toast('เข้าห้องแล้ว')).catch(()=>toast('เข้าห้องไม่สำเร็จ ลองอีกครั้ง'));
   listenMine(); render();
 }
+function kicked(){ const prev=ME; if(mineUnsub){ mineUnsub(); mineUnsub=null; } ME=null; MYANS={}; lsSet(meKey(),null); drafts={_sid:prev?prev.sid:'', _name:prev?prev.n:'', _g:prev?prev.g:null}; toast('ครูนำชื่อออกจากระบบแล้ว ลงทะเบียนใหม่ได้'); render(); }
 let mineUnsub=null;
-function listenMine(){ if(mineUnsub){ mineUnsub(); mineUnsub=null; } if(!ME||!base) return; const ref=base.child('ans/'+ME.sid); const h=ref.on('value',s=>{ MYANS=norm(s.val()); render(); },()=>{}); mineUnsub=()=>ref.off('value',h); }
+function listenMine(){ if(mineUnsub){ mineUnsub(); mineUnsub=null; } if(!ME||!base) return;
+  const ref=base.child('ans/'+ME.sid); const h=ref.on('value',s=>{ MYANS=norm(s.val()); render(); },()=>{});
+  const sref=base.child('stu/'+ME.sid); let seen=false; const h2=sref.on('value',s=>{ const v=s.val(); if(v){ seen=true; } else if(seen){ kicked(); } },()=>{});
+  mineUnsub=()=>{ ref.off('value',h); sref.off('value',h2); }; }
 function answer(k,v){
   if(!ME) return; if(!isOpen(k)){ toast('ครูปิดรับคำตอบข้อนี้แล้ว'); return; }
   MYANS[k]=v; render(); beep(700,.04,'triangle',.06);
@@ -969,15 +989,16 @@ function stuHeader(){
   const st=ME&&S?gStamps(ME.g):0;
   return `<div class="brand"><span class="cross" aria-hidden="true"></span><div><h1 style="font-size:19px">ER ห้องฉุกเฉินประโยค</h1><small>ห้อง ${esc(roomId||'-')} ${connected?'· ออนไลน์':'· กำลังเชื่อมต่อ…'}</small></div></div>
    ${show?`<div class="timer" id="timer"><span class="tlab">${esc(t.label||'')}</span><span class="tdisp" id="tdisp" style="font-size:24px">${fmt(timerLeft())}</span></div>`:''}
-   ${ME?`<div class="me" style="flex-basis:100%"><span class="who">รหัส <b>${esc(ME.sid)}</b> · กลุ่ม <b>${ME.g}</b></span><span class="pill">คะแนนฉัน ${S?myScore().tot:0}</span><span class="pill">สแตมป์กลุ่ม ${st} บาท</span></div>`:''}`;
+   ${ME?`<div class="me" style="flex-basis:100%"><span class="who"><b>${esc(ME.n||'')}</b> · ${esc(ME.sid)} · กลุ่ม <b>${ME.g}</b></span><span class="pill">คะแนนฉัน ${S?myScore().tot:0}</span><span class="pill">สแตมป์กลุ่ม ${st} บาท</span></div>`:''}`;
 }
 function stuJoin(){
   const saved=ME||{};
   return `<section class="panel main"><span class="eyebrow">เข้าห้องฉุกเฉิน</span><h2>ลงทะเบียนก่อนเริ่ม</h2>
     <div class="join"><label for="sidin">รหัสนักเรียน<input id="sidin" inputmode="numeric" autocomplete="off" maxlength="12" value="${esc(drafts._sid!=null?drafts._sid:(saved.sid||''))}" placeholder="เช่น 12345"></label>
+    <label for="namein">ชื่อ-นามสกุล<input id="namein" autocomplete="off" maxlength="40" value="${esc(drafts._name!=null?drafts._name:(saved.n||''))}" placeholder="เช่น สมชาย ใจดี"></label>
     <span style="font-family:var(--f-display)">กลุ่ม</span><div class="gpick">${[1,2,3,4,5,6,7,8].slice(0,(S&&S.groups)||8).map(g=>`<button data-a="gpick" data-v="${g}" aria-pressed="${drafts._g===g}">${g}</button>`).join('')}</div>
     <button class="btn primary" data-a="join" style="font-size:20px;padding:12px">เข้าห้อง</button>
-    <p class="note">ใช้รหัสนักเรียนของตัวเอง ครูใช้รหัสนี้บันทึกคะแนน</p></div></section>`;
+    <p class="note">ใช้รหัสและชื่อของตัวเอง ครูใช้ข้อมูลนี้บันทึกคะแนน</p></div></section>`;
 }
 function stuBody(){
   if(!roomId) return `<section class="panel main"><h2>ใส่รหัสห้อง</h2><div class="join"><label for="roomin2">รหัสห้อง<input id="roomin2" autocomplete="off" placeholder="เช่น 601"></label><button class="btn primary" data-a="sroom">ไปต่อ</button></div></section>`;
@@ -1090,14 +1111,18 @@ document.addEventListener('click',(e)=>{
     else if(a==='rshow') A.rshow();
     else if(a==='rreset'){ if(L.confirm!=='r'){ armConfirm('r'); return; } L.confirm=false; A.rreset(); }
     else if(a==='resetAll'){ if(L.confirm!=='all'){ armConfirm('all'); return; } L.confirm=false; A.resetAll(); toast('เริ่มคาบใหม่แล้ว'); }
-    else if(a==='clearRoster'){ if(L.confirm!=='roster'){ armConfirm('roster'); return; } L.confirm=false; A.clearRoster(); toast('ลบรายชื่อแล้ว นักเรียนต้องลงทะเบียนใหม่'); }
+    else if(a==='clearRoster'){ if(L.confirm!=='roster'){ armConfirm('roster'); return; } L.confirm=false; A.clearRoster(); toast('ลบนักเรียนทั้งหมดแล้ว นักเรียนต้องลงทะเบียนใหม่'); }
+    else if(a==='rsAllAns'){ if(L.confirm!=='ans'){ armConfirm('ans'); return; } L.confirm=false; A.rsAllAns(); toast('รีเซ็ตคะแนนรายบุคคลทั้งหมดแล้ว'); }
+    else if(a==='rsStamps'){ if(L.confirm!=='st'){ armConfirm('st'); return; } L.confirm=false; A.rsStamps(); toast('รีเซ็ตสแตมป์กลุ่มแล้ว'); }
+    else if(a==='rsStu'){ if(L.confirm!=='rs:'+v){ armConfirm('rs:'+v); return; } L.confirm=false; A.rsStu(v); toast('รีเซ็ตคะแนนของ '+v+' แล้ว'); }
+    else if(a==='rmStu'){ if(L.confirm!=='rm:'+v){ armConfirm('rm:'+v); return; } L.confirm=false; A.rmStu(v); toast('ลบ '+v+' ออกจากระบบแล้ว'); }
     else if(a==='csv'){ const t=csvText(); const done=()=>toast('คัดลอกคะแนนแล้ว วางใน Excel หรือ Google Sheets ได้เลย');
       if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done,()=>showCsv(t)); else showCsv(t); }
   } else {
     if(a==='sroom'){ const r=cleanRoom(($('#roomin2')||{}).value); if(r) openRoom(r); }
-    else if(a==='gpick'){ drafts._g=Number(v); const s=$('#sidin'); if(s) drafts._sid=s.value; render(); }
-    else if(a==='join'){ const s=cleanSid(($('#sidin')||{}).value); drafts._edit=false; joinRoom(s, drafts._g); }
-    else if(a==='edit'){ drafts._edit=true; drafts._g=ME?ME.g:null; render(); }
+    else if(a==='gpick'){ drafts._g=Number(v); const s=$('#sidin'); if(s) drafts._sid=s.value; const nm=$('#namein'); if(nm) drafts._name=nm.value; render(); }
+    else if(a==='join'){ const s=cleanSid(($('#sidin')||{}).value); const n=($('#namein')||{}).value; const g=drafts._g; drafts._edit=false; joinRoom(s, g, n); }
+    else if(a==='edit'){ drafts._edit=true; drafts._g=ME?ME.g:null; drafts._sid=ME?ME.sid:''; drafts._name=ME?ME.n:''; render(); }
     else if(a==='ans'){ const k=b.dataset.k; const val = b.dataset.n!=null ? Number(b.dataset.n) : b.dataset.s; answer(k,val); }
     else if(a==='rxsend'){ const c=S.trx.cur; const s=String(($('#rxin')||{}).value||'').trim().slice(0,240); if(!s){ toast('เขียนใบสั่งยาก่อนส่ง'); return; }
       base.child(`rx/${c}/${ME.g}`).set({s, by:ME.sid}).then(()=>{ toast('ส่งใบสั่งยาของกลุ่มแล้ว'); delete drafts['rx'+c]; render(); }).catch(()=>toast('ส่งไม่สำเร็จ ครูอาจปิดรับแล้ว')); }
@@ -1112,7 +1137,7 @@ document.addEventListener('change',(e)=>{
   const a=e.target.dataset&&e.target.dataset.a;
   if(ROLE==='teacher' && S){ if(a==='groups') A.groups(Number(e.target.value)); else if(a==='rounds') A.rounds(Number(e.target.value)); }
 });
-document.addEventListener('input',(e)=>{ if(ROLE==='student' && e.target.id==='rxin' && S){ drafts['rx'+S.trx.cur]=e.target.value; } if(e.target.id==='sidin'){ drafts._sid=e.target.value; } });
+document.addEventListener('input',(e)=>{ if(ROLE==='student' && e.target.id==='rxin' && S){ drafts['rx'+S.trx.cur]=e.target.value; } if(e.target.id==='sidin'){ drafts._sid=e.target.value; } if(e.target.id==='namein'){ drafts._name=e.target.value; } });
 document.addEventListener('keydown',(e)=>{
   if(e.key==='Escape'){ $('#fx').hidden=true; return; }
   if(ROLE!=='teacher'||!S||e.target.closest('select,input,textarea')) return;
@@ -1143,7 +1168,7 @@ function openRoom(r){
       const gidChanged = S && S.gid!==d.gid; S=d; ensure(); haveState=true; if(gidChanged){ drafts={}; } checkAwards(); render(); });
     listen(base.child('board'), s=>{ BOARD=s.val(); if(BOARD) BOARD.g=norm(BOARD.g); render(); });
     listen(base.child('rx'), s=>{ RXS=norm2(s.val()); render(); });
-    if(ME){ base.child('stu/'+ME.sid).set({g:ME.g, t:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{}); listenMine(); }
+    if(ME && !ME.n){ ME=null; } if(ME){ regStu().catch(()=>{}); listenMine(); }
   }
   render();
 }
@@ -1152,7 +1177,7 @@ function boot(){
   try{ firebase.initializeApp(FB); fdb=firebase.database(); fbOk=true; }catch(e){ fbOk=false; }
   if(!fbOk){ render(); return; }
   fdb.ref('.info/serverTimeOffset').on('value', s=>{ serverOffset=Number(s.val())||0; });
-  fdb.ref('.info/connected').on('value', s=>{ connected=!!s.val(); if(connected && ROLE==='student' && ME && base){ base.child('stu/'+ME.sid).set({g:ME.g, t:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{}); } render(); });
+  fdb.ref('.info/connected').on('value', s=>{ connected=!!s.val(); if(connected && ROLE==='student' && ME && base){ regStu().catch(()=>{}); } render(); });
   if(ROLE==='teacher'){
     auth=firebase.auth();
     auth.onAuthStateChanged(u=>{ user=u; authErr=''; if(u) openRoom(lsGet('er5.lastroom')||'601'); else { detach(); roomId=null; S=null; render(); } });
