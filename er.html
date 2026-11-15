@@ -513,7 +513,9 @@ const STEPS = [
  {id:'rev', n:'ทบทวน 10 เคส', x:true},
  {id:'score', n:'คะแนน'}
 ];
-const RANK_ST=[10,7,5,3,1], RX_ST=3, VOTE_ST=5;
+const RANK_ST=[10,7,5,3,1];
+/* stamps are given once per activity, when the teacher ends it: groups ranked by that activity's score get 10 · 7 · 5 · 3 · 1 */
+const ACTS={tri:{n:'คัดแยกผู้ป่วย', step:'triage'}, det:{n:'นักสืบภาพ', step:'teach'}, rev:{n:'ทบทวน 10 เคส', step:'rev'}, rx:{n:'รักษา', step:'treat'}, ward:{n:'ราวด์วอร์ด', step:'ward'}};
 const LETTERS=['ก','ข','ค','ง'];
 const FB = {
   apiKey: "AIzaSyCoZj8vyGCrxp4we4emby0siAvyk3h5yOs",
@@ -553,7 +555,7 @@ function detach(){ unsubs.forEach(f=>{try{f();}catch(e){}}); unsubs=[]; base=nul
 /* ---------- shared state ---------- */
 const fresh=(g)=>({v:2, ver:0, gid:rid(), step:'home', groups:g||6, open:{}, reveal:{}, st:{},
   ngo:{shown:false}, teach:{d:'ก'}, det:{used:[],cur:null,only:null},
-  tri:{rounds:5, list:[], view:0}, trx:{cur:null}, ward:{card:null}, rev:{i:0}, timer:null});
+  tri:{rounds:5, list:[], view:0}, trx:{cur:null}, rxok:{}, ward:{card:null}, rev:{i:0}, timer:null});
 let S=null;          // state (teacher: authoritative; student: mirror)
 function ensure(){
   if(!S) return;
@@ -564,7 +566,7 @@ function ensure(){
   S.tri.list=Array.isArray(S.tri.list)?S.tri.list.map(x=>Array.isArray(x)?x:[]):[];
   if(S.tri.rounds==null) S.tri.rounds=5; if(S.tri.view==null) S.tri.view=0;
   if(!S.trx) S.trx={cur:null}; if(!S.ward) S.ward={card:null}; if(!S.rev) S.rev={i:0}; if(!S.teach) S.teach={d:'ก'}; if(!S.ngo) S.ngo={shown:false};
-  S.st=norm(S.st); for(const k in S.st) S.st[k]=norm(S.st[k]); S.open=norm(S.open); S.reveal=norm(S.reveal);
+  S.st=norm(S.st); for(const k of Object.keys(S.st)){ if(!ACTS[k]) delete S.st[k]; else S.st[k]=norm(S.st[k]); } S.rxok=norm2(S.rxok); S.open=norm(S.open); S.reveal=norm(S.reveal);
   for(const k in S.reveal){ const v=S.reveal[k]; S.reveal[k]=Array.isArray(v)?v:(v&&typeof v==='object'?Object.values(v):[v]); }
 }
 const isOpen=(k)=>!!(S&&S.open&&S.open[k]);
@@ -630,22 +632,40 @@ function answered(k){ let c=0; for(const sid in ANS){ if(ANS[sid] && ANS[sid][k]
 function dist(k,opts){ const c={}; opts.forEach(o=>c[o]=0); for(const sid in ANS){ const v=ANS[sid]&&ANS[sid][k]; if(v!=null && c[v]!=null) c[v]++; else if(v!=null && c[String(v)]!=null) c[String(v)]++; } return c; }
 function closeKeys(pred){ for(const k of Object.keys(S.open)) if(pred(k)) delete S.open[k]; }
 
-/* rank stamps for one reveal event */
-function rankAward(key, keys, title){
-  const M=members(); const avg={};
-  for(let g=1; g<=S.groups; g++){ const ms=M[g]||[]; if(!ms.length) continue; let sum=0; ms.forEach(sid=>keys.forEach(k=>{ if(correct(k,ansOf(sid,k))) sum++; })); avg[g]=sum/ms.length; }
-  const gs=Object.keys(avg).map(Number).filter(g=>avg[g]>0).sort((a,b)=>avg[b]-avg[a]);
-  const res={}; const rows=[];
-  gs.forEach((g,i)=>{ let rank=i+1; if(i>0 && avg[g]===avg[gs[i-1]]) rank=rows[i-1].rank; const v=RANK_ST[rank-1]||0; rows.push({g,rank,v,avg:avg[g]}); if(v) res[g]=v; });
-  S.st[key]=res;
-  showAwards(title, rows, keys.length);
-}
-function showAwards(title, rows, per){
-  if(!rows.length){ overlay(`<div><span class="fxnum" style="font-size:44px">${esc(title)}</span><span class="fxsub">ยังไม่มีกลุ่มใดตอบถูก จึงไม่มีสแตมป์ในรอบนี้ · แตะเพื่อปิด</span></div>`); return; }
+function showAwards(title, rows, fmtv){
+  if(!rows.length){ overlay(`<div><span class="fxnum" style="font-size:44px">${esc(title)}</span><span class="fxsub">ยังไม่มีกลุ่มใดได้คะแนนในกิจกรรมนี้ จึงยังไม่มีสแตมป์ · แตะเพื่อปิด</span></div>`); return; }
   fanfare();
   overlay(`<div style="display:flex;flex-direction:column;gap:14px;align-items:center"><span class="fxnum" style="font-size:clamp(34px,5vw,56px)">${esc(title)}</span>
-    <div class="awards">${rows.map((r,i)=>`<div class="aw" style="animation-delay:${i*160}ms"><span>อันดับ ${r.rank}</span><span>กลุ่ม ${r.g} <small style="opacity:.75;font-size:15px">เฉลี่ย ${r2(r.avg)}${per>1?'/'+per:''}</small></span>${r.v?stampImg(r.v,''):'<span style="opacity:.6">–</span>'}</div>`).join('')}</div>
+    <div class="awards">${rows.map((r,i)=>`<div class="aw" style="animation-delay:${i*160}ms"><span>อันดับ ${r.rank}</span><span>กลุ่ม ${r.g} <small style="opacity:.75;font-size:15px">${esc(fmtv(r.avg))}</small></span>${r.v?stampImg(r.v,''):'<span style="opacity:.6">–</span>'}</div>`).join('')}</div>
     <span class="fxsub">แตะเพื่อปิด</span></div>`);
+}
+
+/* activity scores per group */
+function actScores(act){
+  const out={}; const sc=computeScores();
+  for(let g=1; g<=S.groups; g++){ const G=sc.grp[g];
+    if(act==='tri'||act==='det'||act==='rev'){ if(G.n) out[g]=G[act]; }
+    else if(act==='rx'){ out[g]=G.rx; }
+    else if(act==='ward'){ out[g]=G.ward; } }
+  return {s:out, max:sc.max};
+}
+function actFmt(act,max){ return (v)=> act==='rx' ? `ใบสั่งยาผ่าน ${v} ใบ` : act==='ward' ? `${v} โหวต` : `เฉลี่ย ${r2(v)}/${max[act]||0}`; }
+function rankRows(scores){
+  const gs=Object.keys(scores).map(Number).filter(g=>scores[g]>0).sort((a,b)=>scores[b]-scores[a]); const rows=[];
+  gs.forEach((g,i)=>{ let rank=i+1; if(i>0 && scores[g]===scores[gs[i-1]]) rank=rows[i-1].rank; rows.push({g,rank,v:RANK_ST[rank-1]||0,avg:scores[g]}); });
+  return rows;
+}
+function awardAct(act){
+  const {s,max}=actScores(act); const rows=rankRows(s); const res={}; rows.forEach(r=>{ if(r.v) res[r.g]=r.v; });
+  S.st[act]=res; showAwards('จบกิจกรรม'+ACTS[act].n, rows, actFmt(act,max));
+}
+function awardBar(act){
+  const {s,max}=actScores(act); const rows=rankRows(s); const fmtv=actFmt(act,max); const done=S.st[act]; const tag='aw:'+act;
+  return `<section class="panel"><div class="row" style="justify-content:space-between"><h3>อันดับกลุ่ม · ${esc(ACTS[act].n)}</h3>
+      ${done?`<span class="row" style="gap:6px"><span class="pill ok">มอบสแตมป์แล้ว</span>${cbtn('award',act,tag,'มอบใหม่ (คำนวณใหม่)','กดอีกครั้ง: คำนวณและมอบใหม่')}</span>`
+            :`<button class="btn primary" data-a="award" data-v="${act}">จบกิจกรรม · มอบสแตมป์</button>`}</div>
+    <div class="filter">${rows.length?rows.map(r=>`<span class="pill" style="font-size:15px">อันดับ ${r.rank} · กลุ่ม ${r.g} · ${esc(fmtv(r.avg))}${done&&done[r.g]?' · '+done[r.g]+' บาท':''}</span>`).join(''):'<span class="note">ยังไม่มีคะแนน</span>'}</div>
+    <p class="note">${done?'ถ้าเล่นต่อหลังมอบแล้ว กด “มอบใหม่” เพื่อคำนวณอันดับใหม่ สแตมป์ของกิจกรรมนี้จะถูกแทนที่ ไม่ได้บวกเพิ่ม':'ระหว่างกิจกรรมยังไม่ให้สแตมป์ กดปุ่มนี้ครั้งเดียวตอนจบกิจกรรม กลุ่มอันดับ 1–5 ได้ 10 · 7 · 5 · 3 · 1 บาท คะแนนเท่ากันได้เท่ากัน'}</p></section>`;
 }
 
 /* board for phones: group averages (points) */
@@ -655,7 +675,9 @@ function computeScores(){
   const cats={tri:[],det:[],rev:[]};
   Object.keys(S.reveal).forEach(k=>{ if(/^t\d+_\d$/.test(k)) cats.tri.push(k); else if(/^d\d+$/.test(k)) cats.det.push(k); else if(/^v\d+$/.test(k)) cats.rev.push(k); });
   const ind=Object.keys(STU).map(sid=>{ const o={sid, n:String(STU[sid].n||''), g:Number(STU[sid].g)||0}; for(const c in cats) o[c]=cats[c].filter(k=>correct(k,ansOf(sid,k))).length; o.tot=o.tri+o.det+o.rev; return o; });
-  const grp={}; for(let g=1; g<=S.groups; g++){ const ms=ind.filter(x=>x.g===g); const n=ms.length; const av=(c)=>n?r2(ms.reduce((s,x)=>s+x[c],0)/n):0; grp[g]={n, tri:av('tri'), det:av('det'), rev:av('rev'), tot:av('tot'), st:gStamps(g)}; }
+  const grp={}; for(let g=1; g<=S.groups; g++){ const ms=ind.filter(x=>x.g===g); const n=ms.length; const av=(c)=>n?r2(ms.reduce((s,x)=>s+x[c],0)/n):0; grp[g]={n, tri:av('tri'), det:av('det'), rev:av('rev'), tot:av('tot'), st:gStamps(g), rx:0, ward:0}; }
+  for(const c in (S.rxok||{})){ const m=S.rxok[c]||{}; for(const g in m) if(m[g] && grp[g]) grp[g].rx++; }
+  for(const sid in ANS){ const a=ANS[sid]||{}; for(const k in a){ if(/^w\d+$/.test(k)){ const g=Number(a[k]); if(grp[g]) grp[g].ward++; } } }
   return {ind, grp, max:{tri:cats.tri.length, det:cats.det.length, rev:cats.rev.length}};
 }
 function writeBoard(){ if(!base||!S) return; const sc=computeScores(); const b={gid:S.gid, g:sc.grp, max:sc.max}; const j=JSON.stringify(b); if(j===lastBoard) return; lastBoard=j; base.child('board').set(b).catch(()=>{}); }
@@ -684,7 +706,7 @@ const A={
       setTimeout(()=>{ closeKeys(k=>/^d\d+$/.test(k)); S.det.used.push(pick); S.det.cur=pick; S.open['d'+pick]=true; L.busy=false; L.flip=true; anim(); push(); L.flip=false; }, RM?80:400); }, t);
   },
   dlock(){ const k='d'+S.det.cur; if(isOpen(k)) delete S.open[k]; else if(!isRev(k)) S.open[k]=true; push(); },
-  dshow(){ anim(); const i=S.det.cur; if(i==null) return; const it=DITEMS[i], k='d'+i; delete S.open[k]; S.reveal[k]=[it.t].concat(it.alt||[]); chime(); rankAward(k,[k],'นักสืบภาพที่ '+(S.det.used.length)); push(); },
+  dshow(){ anim(); const i=S.det.cur; if(i==null) return; const it=DITEMS[i], k='d'+i; delete S.open[k]; S.reveal[k]=[it.t].concat(it.alt||[]); chime(); push(); },
   donly(v){ S.det.only=v===''?null:Number(v); push(); },
   dreset(){ closeKeys(k=>/^d\d+$/.test(k)); S.det={used:[],cur:null,only:null}; push(); },
   // triage
@@ -697,28 +719,27 @@ const A={
     anim(); push(); if(!RM) pick.forEach((_,i)=>setTimeout(()=>beep(900+i*140,.05),i*120));
   },
   tview(r){ anim(); S.tri.view=r; push(); },
-  triReset(){ closeKeys(k=>/^t\d+_\d$/.test(k)); for(const k of Object.keys(S.reveal)) if(/^t\d+_\d$/.test(k)) delete S.reveal[k]; for(const k of Object.keys(S.st)) if(/^T\d+$/.test(k)) delete S.st[k];
+  triReset(){ closeKeys(k=>/^t\d+_\d$/.test(k)); for(const k of Object.keys(S.reveal)) if(/^t\d+_\d$/.test(k)) delete S.reveal[k]; delete S.st.tri;
     S.tri.list=[]; S.tri.view=0;
     if(base){ const up={}; Object.keys(ANS).forEach(sid=>{ Object.keys(ANS[sid]||{}).forEach(k=>{ if(/^t\d+_\d$/.test(k)) up[sid+'/'+k]=null; }); }); if(Object.keys(up).length) base.child('ans').update(up).catch(()=>{}); }
     push(); },
   tlock(){ const ks=triKeys(S.tri.view); const anyOpen=ks.some(isOpen); ks.forEach(k=>{ if(anyOpen) delete S.open[k]; else if(!isRev(k)) S.open[k]=true; }); push(); },
-  treveal(){ anim(); const r=S.tri.view, ids=S.tri.list[r]; if(!ids) return; const ks=triKeys(r); ks.forEach((k,i)=>{ delete S.open[k]; const c=CARDS[ids[i]]; S.reveal[k]=[c.d].concat(c.alt||[]); }); chime(); rankAward('T'+r, ks, 'คัดแยกผู้ป่วย รอบที่ '+(r+1)); push(); },
+  treveal(){ anim(); const r=S.tri.view, ids=S.tri.list[r]; if(!ids) return; const ks=triKeys(r); ks.forEach((k,i)=>{ delete S.open[k]; const c=CARDS[ids[i]]; S.reveal[k]=[c.d].concat(c.alt||[]); }); chime(); push(); },
   // treat
   rxpick(c){ closeKeys(k=>/^rx\d+$/.test(k)); S.trx.cur=c; S.open['rx'+c]=true; L.rxKey=false; push(); },
   rxlock(){ const c=S.trx.cur; if(c==null) return; const k='rx'+c; if(isOpen(k)) delete S.open[k]; else S.open[k]=true; push(); },
-  rxok(c,g){ const k='rx'+c; S.st[k]=S.st[k]||{}; if(S.st[k][g]) delete S.st[k][g]; else { S.st[k][g]=RX_ST; beep(880,.08,'triangle',.09); } push(); },
+  rxok(c,g){ S.rxok[c]=S.rxok[c]||{}; if(S.rxok[c][g]) delete S.rxok[c][g]; else { S.rxok[c][g]=true; beep(880,.08,'triangle',.09); } push(); },
   // ward
   wpick(c){ closeKeys(k=>/^w\d+$/.test(k)); S.ward.card=c; push(); },
-  wopen(){ const c=S.ward.card; if(c==null) return; const k='w'+c; if(isOpen(k)) delete S.open[k]; else { S.open[k]=true; delete S.st[k]; } push(); },
-  wclose(){ const c=S.ward.card; if(c==null) return; const k='w'+c; delete S.open[k]; const tally=voteTally(c); const mx=Math.max(0,...Object.values(tally)); const res={}; if(mx>0) Object.keys(tally).forEach(g=>{ if(tally[g]===mx) res[g]=VOTE_ST; }); S.st[k]=res;
-    const rows=Object.keys(res).map(g=>({g:Number(g),rank:1,v:VOTE_ST,avg:mx})); showAwards('ใบสั่งยายอดนิยม', rows, 1); push(); },
+  wopen(){ const c=S.ward.card; if(c==null) return; const k='w'+c; if(isOpen(k)) delete S.open[k]; else { S.open[k]=true; } push(); },
+  wclose(){ const c=S.ward.card; if(c==null) return; delete S.open['w'+c]; chime(); push(); },
   // hw
   xpoll(){ if(isOpen('x')) delete S.open.x; else S.open.x=true; push(); },
   // review
   rgo(i){ if(i<0||i>=REV.length) return; anim(); closeKeys(k=>/^v\d+$/.test(k)); S.rev.i=i; if(!isRev('v'+i)) S.open['v'+i]=true; push(); },
   rlock(){ const k='v'+S.rev.i; if(isOpen(k)) delete S.open[k]; else if(!isRev(k)) S.open[k]=true; push(); },
-  rshow(){ anim(); const i=S.rev.i, it=REV[i], k='v'+i; delete S.open[k]; S.reveal[k]=[it.t].concat(it.alt||[]); chime(); rankAward(k,[k],'ทบทวนเคสที่ '+(i+1)); push(); },
-  rreset(){ for(const k of Object.keys(S.reveal)) if(/^v\d+$/.test(k)){ delete S.reveal[k]; delete S.st[k]; } closeKeys(k=>/^v\d+$/.test(k)); S.rev.i=0; if(base) Object.keys(ANS).forEach(sid=>REV.forEach((_,i)=>{ if(ANS[sid]&&ANS[sid]['v'+i]!=null) base.child(`ans/${sid}/v${i}`).remove(); })); push(); },
+  rshow(){ anim(); const i=S.rev.i, it=REV[i], k='v'+i; delete S.open[k]; S.reveal[k]=[it.t].concat(it.alt||[]); chime(); push(); },
+  rreset(){ delete S.st.rev; for(const k of Object.keys(S.reveal)) if(/^v\d+$/.test(k)){ delete S.reveal[k]; } closeKeys(k=>/^v\d+$/.test(k)); S.rev.i=0; if(base) Object.keys(ANS).forEach(sid=>REV.forEach((_,i)=>{ if(ANS[sid]&&ANS[sid]['v'+i]!=null) base.child(`ans/${sid}/v${i}`).remove(); })); push(); },
   // reset whole lesson
   resetAll(){ const g=S.groups, r=S.tri.rounds; S=fresh(g); S.tri.rounds=r; if(base){ base.child('ans').remove(); base.child('rx').remove(); base.child('board').remove(); } push(); },
   clearRoster(){ if(base){ base.child('stu').remove(); base.child('ans').remove(); } },
@@ -766,10 +787,10 @@ const timerBtn=(sec,label,txt)=>`<button class="btn" data-a="timer" data-sec="${
 const countLine=(k)=>`<span class="count">ตอบแล้ว <b>${answered(k)}</b> / ${nStu()} คน ${isOpen(k)?'<span class="pill ok">เปิดรับคำตอบ</span>':isRev(k)?'<span class="pill">เฉลยแล้ว</span>':'<span class="pill">ปิดรับคำตอบ</span>'}</span>`;
 
 function vHome(){
-  const rows=[['ngo','วาดเงาะ','นักเรียนวาดภาพ แล้วโหวตในมือถือว่านึกภาพแบบไหน'],['teach','4 อาการ','สรุป 4 อาการ และเกมนักสืบภาพในแผนก ง (ตอบด้วยภาพชูนิ้ว)'],['triage','คัดแยกผู้ป่วย','ครูสุ่มรอบละ 3 เคส นักเรียนทุกคนวินิจฉัยในมือถือ ข้อละ 1 คะแนน'],['treat','รักษา','แต่ละกลุ่มส่งใบสั่งยา 1 ใบต่อเคส ครูกด ✓ ให้สแตมป์ '+RX_ST+' บาท'],['ward','ราวด์วอร์ด','นักเรียนโหวตใบสั่งยาของกลุ่มอื่น ได้โหวตสูงสุดรับ '+VOTE_ST+' บาท'],['hw','การบ้าน','โพลออกจากห้อง และคะแนนของฉัน'],['rev','ทบทวน 10 เคส','แตะภาพชูนิ้วตอบสาเหตุความกำกวม'],['score','คะแนน','คะแนนรายบุคคล ค่าเฉลี่ยกลุ่ม และสแตมป์ คัดลอกไปลงสมุดคะแนนได้']];
+  const rows=[['ngo','วาดเงาะ','นักเรียนวาดภาพ แล้วโหวตในมือถือว่านึกภาพแบบไหน'],['teach','4 อาการ','สรุป 4 อาการ และเกมนักสืบภาพในแผนก ง (ตอบด้วยภาพชูนิ้ว)'],['triage','คัดแยกผู้ป่วย','ครูสุ่มรอบละ 3 เคส นักเรียนทุกคนวินิจฉัยในมือถือ ข้อละ 1 คะแนน'],['treat','รักษา','แต่ละกลุ่มส่งใบสั่งยา 1 ใบต่อเคส ครูกด ✓ ใบที่ผ่าน'],['ward','ราวด์วอร์ด','นักเรียนโหวตใบสั่งยาของกลุ่มอื่น'],['hw','การบ้าน','โพลออกจากห้อง และคะแนนของฉัน'],['rev','ทบทวน 10 เคส','แตะภาพชูนิ้วตอบสาเหตุความกำกวม'],['score','คะแนน','คะแนนรายบุคคล ค่าเฉลี่ยกลุ่ม และสแตมป์ คัดลอกไปลงสมุดคะแนนได้']];
   return `<section class="panel main"><div class="hero"><div style="display:flex;flex-direction:column;gap:14px;min-width:0"><span class="eyebrow">คาบที่ 4 · นักเรียนเข้าร่วมด้วยมือถือ</span>
     <h2 style="font-size:clamp(28px,3.4vw,42px)">วินิจฉัยประโยคป่วย แล้วเขียนใบสั่งยา</h2>
-    <p class="lead">ให้นักเรียนสแกน QR แล้วพิมพ์รหัสนักเรียนกับเลือกกลุ่ม ทุกคนตอบในมือถือของตัวเอง คะแนนรายบุคคลข้อละ 1 คะแนน กลุ่มได้สแตมป์ตามอันดับค่าเฉลี่ยทุกครั้งที่เฉลย (10 · 7 · 5 · 3 · 1)</p>
+    <p class="lead">ให้นักเรียนสแกน QR แล้วพิมพ์รหัสนักเรียนกับเลือกกลุ่ม ทุกคนตอบในมือถือของตัวเอง คะแนนรายบุคคลข้อละ 1 คะแนน จบแต่ละกิจกรรม ครูกด “มอบสแตมป์” ครั้งเดียว กลุ่มอันดับ 1–5 ได้ 10 · 7 · 5 · 3 · 1 บาท</p>
     <div class="row"><button class="btn primary" data-a="qr">แสดง QR ให้นักเรียนเข้าห้อง</button>
       <label class="status" for="gsel">จำนวนกลุ่ม</label><select id="gsel" data-a="groups">${[2,3,4,5,6,7,8].map(n=>`<option ${n===S.groups?'selected':''}>${n}</option>`).join('')}</select></div></div>
     <div class="crew" aria-label="ทีมหมอประจำ 4 แผนก">${['ก','ข','ค','ง'].map(d=>docImg(d,'cm')).join('')}</div></div>
@@ -832,17 +853,17 @@ function vDet(){
       ${bars(FORDER.map(f=>({l:fingerLabel(f),c:c[String(f)],ok:S.reveal[k].some(x=>same(x,f))})))}`
      :`<p class="lead" style="font-family:var(--f-display)">กำกวมเพราะอะไร? อ่านได้กี่ความหมาย?</p><div class="wait">นักเรียนแตะภาพชูนิ้วในมือถือ แล้วครูกด “เฉลย”</div>`}</div></div>${deck}`; }
   const counts=t=>DITEMS.filter(x=>x.t===t).length;
-  return `<section class="panel"><h3 style="color:var(--ng)">เกมนักสืบประโยคกำกวม</h3><span class="eyebrow">ภาพจริงจากสื่อออนไลน์ ${DITEMS.length} ภาพ · ถูกได้ 1 คะแนน · กลุ่มได้สแตมป์ตามอันดับ</span>${causesHTML(shown?S.reveal[k]:null)}</section>
+  return `<section class="panel"><h3 style="color:var(--ng)">เกมนักสืบประโยคกำกวม</h3><span class="eyebrow">ภาพจริงจากสื่อออนไลน์ ${DITEMS.length} ภาพ · ถูกได้ 1 คะแนน · จบเกมแล้วกลุ่มได้สแตมป์ตามอันดับ</span>${causesHTML(shown?S.reveal[k]:null)}</section>
     <section class="panel main"><span class="eyebrow">${it?`แฟ้มคดีที่ ${D.used.length} · เหลือ ${left} ภาพ`:`แฟ้มคดี · เหลือ ${left} ภาพ`}</span>${stage}</section>
     <section class="panel"><div class="row">
       <button class="btn ${!it||shown?'primary':''}" data-a="ddraw" ${L.busy||!left?'disabled':''}>${it?'สุ่มภาพต่อไป':'สุ่มภาพ'}</button>
       <button class="btn" data-a="dcount" ${!it||shown?'disabled':''}>นับ 3-2-1</button>
       <button class="btn ghost" data-a="dlock" ${!it||shown?'disabled':''}>${k&&isOpen(k)?'ปิดรับคำตอบ':'เปิดรับคำตอบอีกครั้ง'}</button>
-      <button class="btn ${it&&!shown?'primary':''}" data-a="dshow" ${!it||shown?'disabled':''}>เฉลย + ให้สแตมป์</button></div>
+      <button class="btn ${it&&!shown?'primary':''}" data-a="dshow" ${!it||shown?'disabled':''}>เฉลย</button></div>
      <div class="row"><span class="status">เฉพาะสาเหตุ</span><div class="filter">
       <button class="tog" data-a="donly" data-v="" aria-pressed="${D.only==null}">ทั้งหมด</button>
       ${[1,2,3,4,5,0].filter(t=>counts(t)).map(t=>`<button class="tog" data-a="donly" data-v="${t}" aria-pressed="${D.only===t}">${t===0?'ไม่กำกวม':t} (${counts(t)})</button>`).join('')}</div>
-      <button class="btn sm ghost" data-a="dreset" style="${L.confirm==='d'?'color:var(--er)':''}">${L.confirm==='d'?'กดอีกครั้งเพื่อสับภาพใหม่':'สับภาพใหม่'}</button></div></section>`;
+      <button class="btn sm ghost" data-a="dreset" style="${L.confirm==='d'?'color:var(--er)':''}">${L.confirm==='d'?'กดอีกครั้งเพื่อสับภาพใหม่':'สับภาพใหม่'}</button></div></section>${D.used.length?awardBar('det'):''}`;
 }
 
 function vTriage(){
@@ -862,9 +883,9 @@ function vTriage(){
      <button class="btn ${(!ids||revd)&&done<R.rounds?'primary':''}" data-a="tdraw" ${done>=R.rounds||(ids&&!revd&&r===done-1)?'disabled':''}>${done>=R.rounds?'ครบทุกรอบแล้ว':'สุ่มรอบที่ '+(done+1)}</button>
      ${timerBtn(120,'คัดแยก รอบที่ '+(r+1),'จับเวลา 2 นาที')}
      <button class="btn ghost" data-a="tlock" ${!ids||revd?'disabled':''}>${anyOpen?'ปิดรับคำตอบ':'เปิดรับคำตอบอีกครั้ง'}</button>
-     <button class="btn ${ids&&!revd?'primary':''}" data-a="treveal" ${!ids||revd?'disabled':''}>เฉลย + ให้สแตมป์</button>
+     <button class="btn ${ids&&!revd?'primary':''}" data-a="treveal" ${!ids||revd?'disabled':''}>เฉลย</button>
      ${done?`<button class="btn sm ghost" data-a="triReset" style="margin-left:auto;${L.confirm==='tri'?'color:var(--er);border-color:var(--er)':''}">${L.confirm==='tri'?'กดอีกครั้ง: ล้างทุกรอบ คำตอบ และสแตมป์ของกิจกรรมนี้':'↺ เริ่มสุ่มใหม่'}</button>`:''}</div>
-    ${ids?`<h3>รอบที่ ${r+1} / ${R.rounds}</h3>`:''}${cards}</section>`;
+    ${ids?`<h3>รอบที่ ${r+1} / ${R.rounds}</h3>`:''}${cards}</section>${done?awardBar('tri'):''}`;
 }
 
 function drawnCards(){ const s=[]; S.tri.list.forEach(x=>x.forEach(i=>{ if(!s.includes(i)) s.push(i); })); return s; }
@@ -872,22 +893,22 @@ function vTreat(){
   const c=S.trx.cur, k=c!=null?'rx'+c:null, list=drawnCards();
   const pick=`<div class="filter">${(list.length?list:CARDS.map((_,i)=>i)).map(i=>`<button class="tog" data-a="rxpick" data-v="${i}" aria-pressed="${c===i}">บัตร ${i+1}</button>`).join('')}</div>`;
   let body='<div class="wait">เลือกบัตรผู้ป่วย 1 ใบ แล้วให้แต่ละกลุ่มส่งใบสั่งยา 1 ใบผ่านมือถือ</div>';
-  if(c!=null){ const C=CARDS[c], R=(RX[c]||{}); const st=S.st[k]||{};
+  if(c!=null){ const C=CARDS[c], R=(RX[c]||{}); const st=S.rxok[c]||{};
     body=`<p class="big-sick">${esc(C.s)}</p><div class="row">${countLineRx(c)}
       <button class="btn ghost" data-a="rxlock">${isOpen(k)?'ปิดรับใบสั่งยา':'เปิดรับใบสั่งยาอีกครั้ง'}</button>
       <button class="btn ghost" data-a="rxkey">${L.rxKey?'ซ่อนแนวคำตอบของครู':'แนวคำตอบของครู'}</button></div>
       ${L.rxKey?rx(C.rx)+dx(C.d)+(C.n?`<p class="note">${esc(C.n)}</p>`:''):''}
-      <div class="wall">${Array.from({length:S.groups},(_,i)=>i+1).map(g=>{ const x=R[g]; return `<div class="rxcard ${st[g]?'ok':''}"><h4><span>กลุ่ม ${g}</span>${x?`<button class="btn sm ${st[g]?'primary':''}" data-a="rxok" data-g="${g}">${st[g]?'✓ ให้ '+RX_ST+' บาทแล้ว':'✓ ผ่าน'}</button>`:''}</h4>
+      <div class="wall">${Array.from({length:S.groups},(_,i)=>i+1).map(g=>{ const x=R[g]; return `<div class="rxcard ${st[g]?'ok':''}"><h4><span>กลุ่ม ${g}</span>${x?`<button class="btn sm ${st[g]?'primary':''}" data-a="rxok" data-g="${g}">${st[g]?'✓ ผ่านแล้ว':'✓ ผ่าน'}</button>`:''}</h4>
         ${x?`<span class="t">${esc(x.s)}</span><span class="by">ส่งโดย ${esc(nameOf(x.by))}</span>`:'<span class="note">ยังไม่ส่ง</span>'}</div>`; }).join('')}</div>`; }
   return `<div class="side"><section class="panel main"><span class="eyebrow">รักษา · กลุ่มละ 1 ใบสั่งยาต่อเคส</span>
      <ol class="lead" style="margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px">
       <li>ครูเลือกบัตรผู้ป่วย 1 ใบ</li><li>ในกลุ่มช่วยกันคิด แล้วให้ 1 คนพิมพ์ใบสั่งยาในมือถือและกดส่ง</li>
-      <li>ส่งซ้ำได้ ระบบเก็บฉบับล่าสุด</li><li>ใบสั่งยาที่ครูกด ✓ ได้สแตมป์ ${RX_ST} บาท</li></ol>
+      <li>ส่งซ้ำได้ ระบบเก็บฉบับล่าสุด</li><li>ครูกด ✓ ใบที่ผ่าน จบขั้นรักษาแล้วกลุ่มที่ผ่านมากที่สุดได้สแตมป์ตามอันดับ</li></ol>
      <div class="row">${timerBtn(780,'รักษา')}${timerBtn(180,'รักษา 1 เคส','จับเวลา 3 นาที')}</div></section>
     <section class="panel"><h3>ใบสั่งยาที่ดี</h3><div class="note" style="font-size:18px;color:var(--ink);display:flex;flex-direction:column;gap:6px">
       <span>✓ ประโยคครบ มีผู้ทำและการกระทำ</span><span>✓ ไม่มีคำเกิน</span><span>✓ เรียงคำแบบไทย</span><span>✓ อ่านแล้วได้ความหมายเดียว</span><span>✓ ความหมายเดิมไม่หาย</span></div></section></div>
    <section class="panel"><div class="row"><span class="status">บัตรที่สุ่มในขั้นคัดแยก</span>${pick}</div></section>
-   <section class="panel main">${body}</section>`;
+   <section class="panel main">${body}</section>${awardBar('rx')}`;
 }
 function countLineRx(c){ const R=RX[c]||{}; const n=Object.keys(R).length; return `<span class="count">ส่งแล้ว <b>${n}</b> / ${S.groups} กลุ่ม ${isOpen('rx'+c)?'<span class="pill ok">เปิดรับ</span>':'<span class="pill">ปิดรับ</span>'}</span>`; }
 
@@ -895,15 +916,16 @@ function vWard(){
   const withRx=Object.keys(RX).map(Number).filter(c=>RX[c]&&Object.keys(RX[c]).length);
   const c=S.ward.card, k=c!=null?'w'+c:null;
   let body='<div class="wait">เลือกเคสที่มีใบสั่งยาแล้ว เปิดโหวต นักเรียนจะเห็นใบสั่งยาของกลุ่มอื่นในมือถือและโหวตได้ 1 เสียง (โหวตกลุ่มตัวเองไม่ได้)</div>';
-  if(c!=null){ const tally=voteTally(c), R=RX[c]||{}, st=S.st[k]||{};
+  if(c!=null){ const tally=voteTally(c), R=RX[c]||{}, st={};
     body=`<p class="big-sick">${esc(CARDS[c].s)}</p><div class="row">${countLine(k)}
       <button class="btn ${isOpen(k)?'':'primary'}" data-a="wopen">${isOpen(k)?'ปิดโหวตชั่วคราว':'เปิดโหวต'}</button>
-      <button class="btn ${isOpen(k)?'primary':''}" data-a="wclose">ปิดโหวต + ให้สแตมป์ ${VOTE_ST} บาท</button>${timerBtn(60,'โหวตใบสั่งยา','จับเวลา 1 นาที')}</div>
+      <button class="btn ${isOpen(k)?'primary':''}" data-a="wclose" ${isOpen(k)?'':'disabled'}>ปิดโหวต</button>${timerBtn(60,'โหวตใบสั่งยา','จับเวลา 1 นาที')}</div>
       <div class="wall">${Object.keys(R).map(Number).sort((a,b)=>a-b).map(g=>`<div class="rxcard ${st[g]?'ok':''}"><h4><span>กลุ่ม ${g}</span><span class="pill">${tally[g]||0} โหวต</span></h4><span class="t">${esc(R[g].s)}</span>${st[g]?`<span class="by">ได้สแตมป์ ${st[g]} บาท</span>`:''}</div>`).join('')}</div>`; }
   return `<section class="panel"><span class="eyebrow">ราวด์วอร์ด · โหวตใบสั่งยายอดนิยม</span>
     <p class="lead">อ่านใบสั่งยาของทุกกลุ่มบนจอ อภิปรายสั้น ๆ แล้วให้ทุกคนโหวตใบที่ดีที่สุดที่ไม่ใช่ของกลุ่มตัวเอง</p>
+    <p class="note">ทุกโหวตที่กลุ่มได้รับนับเป็นคะแนน โหวตได้หลายเคส จบแล้วกด “จบกิจกรรม · มอบสแตมป์”</p>
     <div class="row"><span class="status">เคสที่มีใบสั่งยา</span><div class="filter">${withRx.length?withRx.map(i=>`<button class="tog" data-a="wpick" data-v="${i}" aria-pressed="${c===i}">บัตร ${i+1}</button>`).join(''):'<span class="note">ยังไม่มี กลับไปขั้นรักษาก่อน</span>'}</div></div></section>
-   <section class="panel main">${body}</section>`;
+   <section class="panel main">${body}</section>${awardBar('ward')}`;
 }
 
 function vHw(){
@@ -928,11 +950,11 @@ function vRev(){
       :`<p class="lead" style="font-family:var(--f-display)">1) อ่านได้ 2 แบบอย่างไร &nbsp; 2) กำกวมเพราะสาเหตุข้อใด</p>`}
      <div class="row"><button class="btn" data-a="rcount" ${sh?'disabled':''}>นับ 3-2-1</button>
       <button class="btn ghost" data-a="rlock" ${sh?'disabled':''}>${isOpen(k)?'ปิดรับคำตอบ':'เปิดรับคำตอบ'}</button>
-      <button class="btn ${sh?'':'primary'}" data-a="rshow" ${sh?'disabled':''}>เฉลย + ให้สแตมป์</button>
+      <button class="btn ${sh?'':'primary'}" data-a="rshow" ${sh?'disabled':''}>เฉลย</button>
       <button class="btn ghost" data-a="rgo" data-v="${i-1}" ${i===0?'disabled':''}>← ก่อนหน้า</button>
       <button class="btn ${sh?'primary':'ghost'}" data-a="rgo" data-v="${i+1}" ${i===REV.length-1?'disabled':''}>ถัดไป →</button>
       <button class="btn sm ghost" data-a="rreset" style="margin-left:auto;${L.confirm==='r'?'color:var(--er);border-color:var(--er)':''}">${L.confirm==='r'?'กดอีกครั้ง: ล้างคำตอบและสแตมป์ของ 10 เคส':'↺ เริ่มใหม่'}</button></div>
-     <p class="note">ที่มา: เอกสาร “ตัวอย่างประโยคกำกวม” (คัด 10 จาก 15 ประโยค)</p></section>`;
+     <p class="note">ที่มา: เอกสาร “ตัวอย่างประโยคกำกวม” (คัด 10 จาก 15 ประโยค)</p></section>${awardBar('rev')}`;
 }
 
 const nameOf=(sid)=>{ const s=STU[sid]; return s&&s.n ? s.n+' ('+sid+')' : sid; };
@@ -955,9 +977,10 @@ function vScore(){
   const topSt=Math.max(0,...gs.map(g=>sc.grp[g].st));
   const ind=sc.ind.slice().sort(indSort);
   return rosterPanel()+`<section class="panel main"><div class="row" style="justify-content:space-between"><h2 style="font-size:28px">สแตมป์และค่าเฉลี่ยกลุ่ม</h2>
-     <span class="note">สแตมป์อันดับ 10 · 7 · 5 · 3 · 1 ทุกครั้งที่เฉลย · ใบสั่งยาผ่าน ${RX_ST} · โหวตสูงสุด ${VOTE_ST}</span></div>
-    <div class="tabwrap"><table class="gtab"><thead><tr><th>กลุ่ม</th><th>คน</th><th>สแตมป์</th><th class="n">รวม (บาท)</th><th class="n">คัดแยก /${M.tri}</th><th class="n">นักสืบ /${M.det}</th><th class="n">ทบทวน /${M.rev}</th><th class="n">เฉลี่ยรวม</th></tr></thead>
-    <tbody>${gs.map(g=>{ const x=sc.grp[g]; return `<tr class="${topSt>0&&x.st===topSt?'top':''}"><td><b>กลุ่ม ${g}</b></td><td class="n">${x.n}</td><td><div class="stamps">${gStampList(g).sort((a,b)=>b-a).map(v=>stampImg(v)).join('')}</div></td><td class="n"><b>${x.st}</b></td><td class="n">${x.tri}</td><td class="n">${x.det}</td><td class="n">${x.rev}</td><td class="n">${x.tot}</td></tr>`; }).join('')}</tbody></table></div>
+     <span class="note">มอบสแตมป์รายกิจกรรม อันดับ 1–5 ได้ 10 · 7 · 5 · 3 · 1 บาท</span></div>
+    <div class="filter">${Object.keys(ACTS).map(a=>`<span class="pill ${S.st[a]?'ok':''}">${esc(ACTS[a].n)}: ${S.st[a]?'มอบแล้ว':'ยังไม่มอบ'}</span>`).join('')}</div>
+    <div class="tabwrap"><table class="gtab"><thead><tr><th>กลุ่ม</th><th>คน</th><th>สแตมป์</th><th class="n">รวม (บาท)</th><th class="n">คัดแยก /${M.tri}</th><th class="n">นักสืบ /${M.det}</th><th class="n">ทบทวน /${M.rev}</th><th class="n">เฉลี่ยรวม</th><th class="n">ใบสั่งยาผ่าน</th><th class="n">โหวต</th></tr></thead>
+    <tbody>${gs.map(g=>{ const x=sc.grp[g]; return `<tr class="${topSt>0&&x.st===topSt?'top':''}"><td><b>กลุ่ม ${g}</b></td><td class="n">${x.n}</td><td><div class="stamps">${gStampList(g).sort((a,b)=>b-a).map(v=>stampImg(v)).join('')}</div></td><td class="n"><b>${x.st}</b></td><td class="n">${x.tri}</td><td class="n">${x.det}</td><td class="n">${x.rev}</td><td class="n">${x.tot}</td><td class="n">${x.rx}</td><td class="n">${x.ward}</td></tr>`; }).join('')}</tbody></table></div>
     <p class="note">ค่าเฉลี่ยกลุ่ม = ผลรวมคะแนนของสมาชิกทุกคนที่ลงทะเบียนในกลุ่ม ÷ จำนวนสมาชิก คนที่ไม่ได้ตอบนับเป็น 0</p></section>
    <section class="panel"><div class="row" style="justify-content:space-between"><h3>คะแนนรายบุคคล (${ind.length} คน)</h3>
      <button class="btn primary" data-a="csv">คัดลอกคะแนน (วางใน Excel/Sheets)</button></div>
@@ -1087,7 +1110,7 @@ function stuBody(){
         <textarea id="rxin" class="rxin" maxlength="240" ${isOpen(k)?'':'disabled'}>${esc(dv)}</textarea>
         <div class="row"><button class="btn primary" data-a="rxsend" ${isOpen(k)?'':'disabled'}>ส่งใบสั่งยาของกลุ่ม</button>${isOpen(k)?'':'<span class="pill">ปิดรับแล้ว</span>'}</div>
         ${mine?`<div class="check"><b>ฉบับที่ส่งล่าสุด</b> (โดย ${esc(mine.by)}) ${esc(mine.s)}</div>`:'<p class="note">กลุ่มยังไม่ได้ส่ง</p>'}
-        ${S.st[k]&&S.st[k][ME.g]?`<div class="result ok">ครูให้ผ่าน ✓ กลุ่มได้สแตมป์ ${S.st[k][ME.g]} บาท</div>`:''}</section>`; } }
+        ${S.rxok&&S.rxok[c]&&S.rxok[c][ME.g]?`<div class="result ok">ครูให้ผ่าน ✓ ใบสั่งยาของกลุ่มนับเป็นคะแนนกิจกรรมรักษา</div>`:''}</section>`; } }
   else if(step==='ward'){ const c=S.ward.card;
     if(c==null) html='<div class="wait">รอครูเลือกเคสที่จะโหวต</div>';
     else { const k='w'+c, R=RXS[c]||{}, v=MYANS[k];
@@ -1109,7 +1132,7 @@ function scoreCard(sc,G,M){
     <h3>กลุ่ม ${ME.g}</h3><p>ค่าเฉลี่ยกลุ่ม <b>${G?G.tot:'-'}</b> คะแนน · สมาชิก ${G?G.n:'-'} คน</p><div class="stamps">${gStampList(ME.g).sort((a,b)=>b-a).map(v=>stampImg(v)).join('')||'<span class="note">ยังไม่มีสแตมป์</span>'}</div></section>`;
 }
 function checkAwards(){ // student: celebrate new stamps for my group
-  if(!ME||!S) return; for(const k in S.st){ const v=S.st[k]&&S.st[k][ME.g]; const id=S.gid+':'+k; if(v && !lastSeenAward[id]){ lastSeenAward[id]=1; if(haveState && lastSeenAward._ready){ fanfare(); overlay(`<div style="display:flex;flex-direction:column;align-items:center;gap:10px">${stampImg(v,'bigst')}<span class="fxnum" style="font-size:40px">กลุ่ม ${ME.g} ได้ ${v} บาท!</span><span class="fxsub">แตะเพื่อปิด</span></div>`,3500); } } } lastSeenAward._ready=1; }
+  if(!ME||!S) return; for(const k in S.st){ const v=S.st[k]&&S.st[k][ME.g]; const id=S.gid+':'+k+':'+v; if(v && !lastSeenAward[id]){ lastSeenAward[id]=1; if(haveState && lastSeenAward._ready){ fanfare(); overlay(`<div style="display:flex;flex-direction:column;align-items:center;gap:10px">${stampImg(v,'bigst')}<span class="fxnum" style="font-size:40px">กลุ่ม ${ME.g} ได้ ${v} บาท!</span><span class="fxsub" style="opacity:1">จบกิจกรรม${esc(ACTS[k]?ACTS[k].n:'')}</span><span class="fxsub">แตะเพื่อปิด</span></div>`,3500); } } } lastSeenAward._ready=1; }
 function renderStudent(){
   $('#bar').innerHTML=stuHeader();
   $('#app').innerHTML=stuBody();
@@ -1156,6 +1179,7 @@ document.addEventListener('click',(e)=>{
     else if(a==='dreset'){ if(L.confirm!=='d'){ armConfirm('d'); return; } L.confirm=false; A.dreset(); }
     else if(a==='tdraw') A.tdraw();
     else if(a==='tview') A.tview(Number(v));
+    else if(a==='award'){ if(S.st[v] && L.confirm!=='aw:'+v){ armConfirm('aw:'+v); return; } L.confirm=false; anim(); awardAct(v); push(); }
     else if(a==='triReset'){ if(L.confirm!=='tri'){ armConfirm('tri'); return; } L.confirm=false; A.triReset(); toast('เริ่มคัดแยกผู้ป่วยใหม่แล้ว'); }
     else if(a==='tlock') A.tlock();
     else if(a==='treveal') A.treveal();
