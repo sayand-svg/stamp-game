@@ -263,6 +263,7 @@ p{margin:0}
 .gtab{width:100%;border-collapse:collapse;font-size:16px}
 .gtab th,.gtab td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 .gtab th{font-family:var(--f-display);font-weight:500;font-size:14px;color:var(--muted)}
+.gtab th.n{text-align:right}
 .gtab td.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f-display)}
 .gtab tr.top td{background:color-mix(in srgb,var(--gold) 14%,transparent)}
 .tabwrap{overflow-x:auto}
@@ -566,7 +567,7 @@ function ensure(){
   S.tri.list=Array.isArray(S.tri.list)?S.tri.list.map(x=>Array.isArray(x)?x:[]):[];
   if(S.tri.rounds==null) S.tri.rounds=5; if(S.tri.view==null) S.tri.view=0;
   if(!S.trx) S.trx={cur:null}; if(!S.ward) S.ward={card:null}; if(!S.rev) S.rev={i:0}; if(!S.teach) S.teach={d:'ก'}; if(!S.ngo) S.ngo={shown:false};
-  S.st=norm(S.st); for(const k of Object.keys(S.st)){ if(!ACTS[k]) delete S.st[k]; else S.st[k]=norm(S.st[k]); } S.rxok=norm2(S.rxok); S.open=norm(S.open); S.reveal=norm(S.reveal);
+  S.st=norm(S.st); for(const k of Object.keys(S.st)){ if(!ACTS[k]) delete S.st[k]; else S.st[k]=norm(S.st[k]); } S.rxok=norm2(S.rxok); S.open=norm(S.open); S.reveal=norm(S.reveal); for(const k of Object.keys(S.reveal)) if(/^d\d+$/.test(k) && Number(k.slice(1))>=DITEMS.length) delete S.reveal[k]; for(const k of Object.keys(S.open)) if(/^d\d+$/.test(k) && Number(k.slice(1))>=DITEMS.length) delete S.open[k];
   for(const k in S.reveal){ const v=S.reveal[k]; S.reveal[k]=Array.isArray(v)?v:(v&&typeof v==='object'?Object.values(v):[v]); }
 }
 const isOpen=(k)=>!!(S&&S.open&&S.open[k]);
@@ -630,6 +631,7 @@ const nStu=()=>Object.keys(STU).length;
 const ansOf=(sid,k)=>{ const a=ANS[sid]; return a?a[k]:undefined; };
 function answered(k){ let c=0; for(const sid in ANS){ if(ANS[sid] && ANS[sid][k]!=null) c++; } return c; }
 function dist(k,opts){ const c={}; opts.forEach(o=>c[o]=0); for(const sid in ANS){ const v=ANS[sid]&&ANS[sid][k]; if(v!=null && c[v]!=null) c[v]++; else if(v!=null && c[String(v)]!=null) c[String(v)]++; } return c; }
+function dropAns(re){ if(!base) return; const up={}; Object.keys(ANS).forEach(sid=>{ Object.keys(ANS[sid]||{}).forEach(k=>{ if(re.test(k)) up[sid+'/'+k]=null; }); }); if(Object.keys(up).length) base.child('ans').update(up).catch(()=>{}); }
 function closeKeys(pred){ for(const k of Object.keys(S.open)) if(pred(k)) delete S.open[k]; }
 
 function showAwards(title, rows, fmtv){
@@ -708,7 +710,7 @@ const A={
   dlock(){ const k='d'+S.det.cur; if(isOpen(k)) delete S.open[k]; else if(!isRev(k)) S.open[k]=true; push(); },
   dshow(){ anim(); const i=S.det.cur; if(i==null) return; const it=DITEMS[i], k='d'+i; delete S.open[k]; S.reveal[k]=[it.t].concat(it.alt||[]); chime(); push(); },
   donly(v){ S.det.only=v===''?null:Number(v); push(); },
-  dreset(){ closeKeys(k=>/^d\d+$/.test(k)); S.det={used:[],cur:null,only:null}; push(); },
+  dreset(){ closeKeys(k=>/^d\d+$/.test(k)); for(const k of Object.keys(S.reveal)) if(/^d\d+$/.test(k)) delete S.reveal[k]; delete S.st.det; dropAns(/^d\d+$/); S.det={used:[],cur:null,only:null}; push(); },
   // triage
   rounds(n){ S.tri.rounds=n; push(); },
   tdraw(){
@@ -732,6 +734,8 @@ const A={
   // ward
   wpick(c){ closeKeys(k=>/^w\d+$/.test(k)); S.ward.card=c; push(); },
   wopen(){ const c=S.ward.card; if(c==null) return; const k='w'+c; if(isOpen(k)) delete S.open[k]; else { S.open[k]=true; } push(); },
+  rxReset(){ closeKeys(k=>/^rx\d+$/.test(k)); S.rxok={}; delete S.st.rx; S.trx.cur=null; if(base) base.child('rx').remove(); closeKeys(k=>/^w\d+$/.test(k)); S.ward.card=null; delete S.st.ward; dropAns(/^w\d+$/); push(); },
+  wReset(){ closeKeys(k=>/^w\d+$/.test(k)); S.ward.card=null; delete S.st.ward; dropAns(/^w\d+$/); push(); },
   wclose(){ const c=S.ward.card; if(c==null) return; delete S.open['w'+c]; chime(); push(); },
   // hw
   xpoll(){ if(isOpen('x')) delete S.open.x; else S.open.x=true; push(); },
@@ -863,7 +867,7 @@ function vDet(){
      <div class="row"><span class="status">เฉพาะสาเหตุ</span><div class="filter">
       <button class="tog" data-a="donly" data-v="" aria-pressed="${D.only==null}">ทั้งหมด</button>
       ${[1,2,3,4,5,0].filter(t=>counts(t)).map(t=>`<button class="tog" data-a="donly" data-v="${t}" aria-pressed="${D.only===t}">${t===0?'ไม่กำกวม':t} (${counts(t)})</button>`).join('')}</div>
-      <button class="btn sm ghost" data-a="dreset" style="${L.confirm==='d'?'color:var(--er)':''}">${L.confirm==='d'?'กดอีกครั้งเพื่อสับภาพใหม่':'สับภาพใหม่'}</button></div></section>${D.used.length?awardBar('det'):''}`;
+      <button class="btn sm ghost" data-a="dreset" style="${L.confirm==='d'?'color:var(--er)':''}">${L.confirm==='d'?'กดอีกครั้ง: ล้างคำตอบและสแตมป์ของนักสืบ':'↺ เริ่มนักสืบใหม่'}</button></div></section>${D.used.length?awardBar('det'):''}`;
 }
 
 function vTriage(){
@@ -908,7 +912,7 @@ function vTreat(){
     <section class="panel"><h3>ใบสั่งยาที่ดี</h3><div class="note" style="font-size:18px;color:var(--ink);display:flex;flex-direction:column;gap:6px">
       <span>✓ ประโยคครบ มีผู้ทำและการกระทำ</span><span>✓ ไม่มีคำเกิน</span><span>✓ เรียงคำแบบไทย</span><span>✓ อ่านแล้วได้ความหมายเดียว</span><span>✓ ความหมายเดิมไม่หาย</span></div></section></div>
    <section class="panel"><div class="row"><span class="status">บัตรที่สุ่มในขั้นคัดแยก</span>${pick}</div></section>
-   <section class="panel main">${body}</section>${awardBar('rx')}`;
+   <section class="panel main">${body}</section>${awardBar('rx')}<div class="row" style="justify-content:flex-end">${cbtn('rxReset','','rxr','↺ ล้างใบสั่งยาทั้งหมด','กดอีกครั้ง: ล้างใบสั่งยา ✓ โหวต และสแตมป์ของรักษากับราวด์วอร์ด')}</div>`;
 }
 function countLineRx(c){ const R=RX[c]||{}; const n=Object.keys(R).length; return `<span class="count">ส่งแล้ว <b>${n}</b> / ${S.groups} กลุ่ม ${isOpen('rx'+c)?'<span class="pill ok">เปิดรับ</span>':'<span class="pill">ปิดรับ</span>'}</span>`; }
 
@@ -925,7 +929,7 @@ function vWard(){
     <p class="lead">อ่านใบสั่งยาของทุกกลุ่มบนจอ อภิปรายสั้น ๆ แล้วให้ทุกคนโหวตใบที่ดีที่สุดที่ไม่ใช่ของกลุ่มตัวเอง</p>
     <p class="note">ทุกโหวตที่กลุ่มได้รับนับเป็นคะแนน โหวตได้หลายเคส จบแล้วกด “จบกิจกรรม · มอบสแตมป์”</p>
     <div class="row"><span class="status">เคสที่มีใบสั่งยา</span><div class="filter">${withRx.length?withRx.map(i=>`<button class="tog" data-a="wpick" data-v="${i}" aria-pressed="${c===i}">บัตร ${i+1}</button>`).join(''):'<span class="note">ยังไม่มี กลับไปขั้นรักษาก่อน</span>'}</div></div></section>
-   <section class="panel main">${body}</section>${awardBar('ward')}`;
+   <section class="panel main">${body}</section>${awardBar('ward')}<div class="row" style="justify-content:flex-end">${cbtn('wReset','','wr','↺ ล้างโหวตทั้งหมด','กดอีกครั้ง: ล้างโหวตและสแตมป์ของราวด์วอร์ด')}</div>`;
 }
 
 function vHw(){
@@ -986,8 +990,9 @@ function vScore(){
      <button class="btn primary" data-a="csv">คัดลอกคะแนน (วางใน Excel/Sheets)</button></div>
     <div class="row">${cbtn('rsAllAns','','ans','รีเซ็ตคะแนนรายบุคคลทั้งหมด','กดอีกครั้ง: ล้างคำตอบของทุกคน')}
       ${cbtn('rsStamps','','st','รีเซ็ตสแตมป์กลุ่มทั้งหมด','กดอีกครั้ง: ล้างสแตมป์ทุกกลุ่ม')}
+      ${cbtn('resetAll','','all','↺ เริ่มคาบใหม่ (ล้างทุกอย่าง ยกเว้นรายชื่อ)','กดอีกครั้ง: ล้างคำตอบ คะแนน ใบสั่งยา และสแตมป์ทั้งหมด')}
       ${cbtn('clearRoster','','roster','ลบนักเรียนทั้งหมดออกจากระบบ','กดอีกครั้ง: ลบรายชื่อและคะแนนทั้งหมด')}</div>
-    <p class="note">รีเซ็ตคะแนนรายบุคคลจะล้างคำตอบที่ส่งไว้ คะแนนกลับเป็น 0 แต่สแตมป์ที่กลุ่มได้ไปแล้วยังอยู่ ถ้าต้องการล้างสแตมป์ด้วยให้กดรีเซ็ตสแตมป์แยก · ลบนักเรียนออก มือถือของคนนั้นจะกลับไปหน้าลงทะเบียน แล้วเข้าใหม่ได้</p>
+    <p class="note">รีเซ็ตคะแนนรายบุคคลล้างเฉพาะคำตอบของนักเรียน · รีเซ็ตสแตมป์ล้างเฉพาะสแตมป์ · ใบสั่งยาที่ผ่าน ✓ เป็นงานกลุ่ม ล้างได้ที่หน้ารักษา · ถ้าจะล้างทุกอย่างพร้อมกันให้กด “เริ่มคาบใหม่” · ลบนักเรียนออก มือถือของคนนั้นจะกลับไปหน้าลงทะเบียน แล้วเข้าใหม่ได้</p>
     <textarea id="csvbox" hidden readonly style="width:100%;height:120px"></textarea>
     <div class="tabwrap"><table class="gtab"><thead><tr><th>ห้อง</th><th>เลขที่</th><th>รหัสนักเรียน</th><th>ชื่อ</th><th>กลุ่ม</th><th class="n">คัดแยก /${M.tri}</th><th class="n">นักสืบ /${M.det}</th><th class="n">ทบทวน /${M.rev}</th><th class="n">รวม</th><th></th></tr></thead>
     <tbody>${ind.map(x=>`<tr><td>${esc(roomOf(x.sid))}</td><td>${esc(noOf(x.sid))}</td><td>${esc(x.sid)}</td><td>${esc(x.n)}</td><td>${x.g}</td><td class="n">${x.tri}</td><td class="n">${x.det}</td><td class="n">${x.rev}</td><td class="n"><b>${x.tot}</b></td>
@@ -1176,6 +1181,8 @@ document.addEventListener('click',(e)=>{
     else if(a==='dlock') A.dlock();
     else if(a==='dshow') A.dshow();
     else if(a==='donly') A.donly(v);
+    else if(a==='rxReset'){ if(L.confirm!=='rxr'){ armConfirm('rxr'); return; } L.confirm=false; A.rxReset(); toast('ล้างใบสั่งยาแล้ว'); }
+    else if(a==='wReset'){ if(L.confirm!=='wr'){ armConfirm('wr'); return; } L.confirm=false; A.wReset(); toast('ล้างโหวตแล้ว'); }
     else if(a==='dreset'){ if(L.confirm!=='d'){ armConfirm('d'); return; } L.confirm=false; A.dreset(); }
     else if(a==='tdraw') A.tdraw();
     else if(a==='tview') A.tview(Number(v));
